@@ -39,6 +39,23 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements-dev.txt
 
+      - name: Comprobar el secreto DATABASE_URL
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          # Falla aquí, antes de media hora de extracción, y dice qué está mal. El error
+          # que da SQLAlchemy más adelante («Could not parse SQLAlchemy URL») no permite
+          # distinguir un secreto ausente de uno que incluye el prefijo DATABASE_URL=.
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::error::El secreto DATABASE_URL no está definido en el repositorio."
+            exit 1
+          fi
+          case "$DATABASE_URL" in
+            postgresql://*|postgresql+psycopg2://*|postgres://*) ;;
+            *) echo "::error::DATABASE_URL no empieza por postgresql://. Debe contener solo la cadena de conexión, sin el prefijo 'DATABASE_URL='."
+               exit 1 ;;
+          esac
+
       - name: Instalar Chromium
         run: python -m playwright install --with-deps chromium
 
