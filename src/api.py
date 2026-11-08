@@ -17,7 +17,7 @@ from pathlib import Path
 from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
-from sqlalchemy import func, or_, select
+from sqlalchemy import case, func, select
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -40,6 +40,14 @@ app.add_middleware(
 )
 
 Sesion = crear_sesion()
+
+# Una diferencia de más de cinco veces entre dos cadenas para el mismo producto no es
+# una diferencia de precio, es un error de lectura. La mayor diferencia legítima medida
+# en la evaluación fue de 1,9 veces (89,7%), así que el tope no descarta casos reales y
+# evita que la portada destaque justamente los datos malos: ordenar por diferencia
+# relativa los pone primero. Dos de los 2.521 precios cargados el 20-oct-2026 eran de
+# este tipo, por el precio por metro del papel higiénico que la extracción ya corrige.
+RAZON_INVEROSIMIL = 5.0
 
 
 def obtener_sesion():
@@ -73,6 +81,12 @@ class ProductoComparado(BaseModel):
     mayor_precio: int | None = None
     ahorro: int | None = None
     cadena_mas_barata: str | None = None
+
+
+class Categoria(BaseModel):
+    nombre: str
+    productos: int
+    comparables: int   # con precio en dos o más cadenas
 
 
 class ItemEntrada(BaseModel):
@@ -124,13 +138,26 @@ def precios_vigentes(sesion, producto_ids: list[int]) -> dict[int, list[PrecioCa
         .where(VariantePorCadena.producto_id.in_(producto_ids))
     ).all()
 
-    agrupado: dict[int, list[PrecioCadena]] = defaultdict(list)
+    # Un producto puede tener más de una variante de la misma cadena, y entonces la
+    # comparación mostraría dos filas para esa cadena. Ocurre por dos motivos: la tienda
+    # publica el mismo artículo dos veces con redacciones que se normalizan igual
+    # («200 cc» y «200 ml», «Tarro 170 g» y «Frasco 170 g»), o el emparejamiento agrupó
+    # de más. En ambos casos la respuesta correcta a «cuánto cuesta en esta cadena» es el
+    # menor de los precios que esa cadena ofrece: 25 de los 1.796 productos cargados el
+    # 20-oct-2026 estaban en esta situación.
+    por_cadena: dict[int, dict[str, PrecioCadena]] = defaultdict(dict)
     for pid, cadena, precio, por_unidad, nombre, url, fecha in filas:
-        agrupado[pid].append(PrecioCadena(
+        dato = PrecioCadena(
             cadena=cadena, precio=precio, precio_por_unidad=por_unidad,
-            nombre_en_cadena=nombre, url=url, fecha=fecha))
-    for lista in agrupado.values():
-        lista.sort(key=lambda x: x.precio)
+            nombre_en_cadena=nombre, url=url, fecha=fecha)
+        previo = por_cadena[pid].get(cadena)
+        if previo is None or dato.precio < previo.precio:
+            por_cadena[pid][cadena] = dato
+
+    agrupado: dict[int, list[PrecioCadena]] = {
+        pid: sorted(datos.values(), key=lambda x: x.precio)
+        for pid, datos in por_cadena.items()
+    }
     return agrupado
 
 
@@ -168,6 +195,65 @@ def salud(sesion=Depends(obtener_sesion)):
         "precios": sesion.execute(select(func.count(Precio.id))).scalar(),
         "ultima_actualizacion": ultima,
     }
+
+
+@app.get("/categorias", response_model=list[Categoria],
+         summary="Categorías disponibles con su cantidad de productos")
+def categorias(sesion=Depends(obtener_sesion)):
+    """
+    Las categorías son las consultas con que se obtuvieron los productos.
+
+    Se informa aparte cuántos son comparables, es decir con precio en dos o más
+    cadenas: una categoría con muchos productos pero pocos comparables sirve de poco
+    para quien quiere comparar, y conviene que la interfaz pueda distinguirlo.
+    """
+    cadenas_por_producto = (
+        select(VariantePorCadena.producto_id,
+               func.count(func.distinct(VariantePorCadena.cadena_id)).label("n"))
+        .group_by(VariantePorCadena.producto_id).subquery()
+    )
+    filas = sesion.execute(
+        select(Producto.categoria, func.count(Producto.id),
+               func.sum(case((cadenas_por_producto.c.n > 1, 1), else_=0)))
+        .join(cadenas_por_producto, cadenas_por_producto.c.producto_id == Producto.id)
+        .group_by(Producto.categoria).order_by(Producto.categoria)
+    ).all()
+    return [Categoria(nombre=c, productos=n, comparables=int(k or 0)) for c, n, k in filas]
+
+
+@app.get("/destacados", response_model=list[ProductoComparado],
+         summary="Productos donde hoy hay más diferencia de precio entre cadenas")
+def destacados(limite: int = Query(default=12, ge=1, le=50),
+               categoria: str | None = Query(default=None),
+               sesion=Depends(obtener_sesion)):
+    """
+    Dónde más se gana comparando hoy.
+
+    Se ordena por diferencia relativa y no absoluta: $600 de diferencia en un producto
+    de $700 le importa más a quien compra que los mismos $600 en uno de $9.000. Solo
+    entran los productos con precio en al menos dos cadenas, porque en el resto no hay
+    diferencia que mostrar.
+    """
+    consulta = select(Producto.id)
+    if categoria:
+        consulta = consulta.where(Producto.categoria == categoria)
+    ids = sesion.execute(consulta).scalars().all()
+    precios = precios_vigentes(sesion, list(ids))
+
+    conmensurables = []
+    for pid, lista in precios.items():
+        if len(lista) < 2:
+            continue
+        menor, mayor = lista[0].precio, lista[-1].precio
+        if menor <= 0 or mayor / menor > RAZON_INVEROSIMIL:
+            continue
+        conmensurables.append(((mayor - menor) / menor, pid))
+    conmensurables.sort(reverse=True)
+
+    elegidos = [pid for _, pid in conmensurables[:limite]]
+    productos = {p.id: p for p in
+                 sesion.execute(select(Producto).where(Producto.id.in_(elegidos))).scalars()}
+    return [armar_comparacion(productos[pid], precios[pid]) for pid in elegidos if pid in productos]
 
 
 @app.get("/buscar", response_model=list[ProductoComparado],

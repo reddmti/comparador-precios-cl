@@ -97,7 +97,17 @@ _MONTO = re.compile(r"\$\s*([\d.]+)")
 
 # Precio por unidad de medida: "$2.625 x kg", "$874 x 100ml", "$417 x 100 ml", "$3.490 x un".
 # La cantidad intermedia es opcional y la unidad puede ir pegada al número.
-_POR_UNIDAD = r"x\s*\d*[.,]?\d*\s*(kg|g|gr|grs|ml|cc|l|lt|lts|un|uds?|unidad)\b"
+#
+# La lista no se limita a peso y volumen: en papel higiénico, servilletas y toallas de
+# papel Jumbo informa el precio por metro ("$19 x m") y a veces por rollo o por hoja.
+# Mientras el metro faltó aquí, esa línea se leía como el precio del producto y dejaba
+# papeles higiénicos a $16 y $20 (2 de los 2.521 precios cargados el 20-oct-2026).
+# Las unidades largas conviven con las cortas porque el \b final obliga a reintentar:
+# "x mts" no se queda en "m", igual que "x grs" nunca se quedó en "g".
+_POR_UNIDAD = (r"x\s*\d*[.,]?\d*\s*"
+               r"(kg|g|gr|grs|ml|cc|l|lt|lts|m|mt|mts|metro|metros|"
+               r"un|u|uds?|unidad|unidades|rollo|rollos|hoja|hojas|"
+               r"lavado|lavados|capsula|capsulas|bolsita|bolsitas)\b")
 # Promociones: "Lleva 4 por $3.000", "4 x $3.000", "6 por 5 a $1.600", "2da a $990".
 _PROMO = r"lleva|^\s*\d+\s*x\s*\$|\d+\s*por\s*\d+|\d+\s*(da|ra|ta)\s+a\s*\$"
 

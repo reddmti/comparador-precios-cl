@@ -27,6 +27,18 @@ CASOS = [
     ("jumbo, promo 6 por 5", ["6 por 5 a $1.600", "$2.225 x kg", "$320", "$2.667 x kg", "Soprole", "Yogurt Batido Soprole Frutilla 120 g"], (320, 2667)),  # 320 / 0,12 kg = 2.667 por kg
     ("jumbo, precio por 100 ml pegado", ["Lleva 2 por $4.000", "$286 x 100ml", "$2.920", "$417 x 100ml", "Elite", "Jabón Líquido Elite 700 ml"], (2920, None)),
     ("jumbo, precio por 100 ml separado", ["$874 x 100 ml", "$3.913", "Pantene", "Shampoo Pantene 400 ml"], (3913, None)),
+    # Casos detectados el 08-nov-2026: en papel higiénico y servilletas Jumbo informa el
+    # precio por metro. El metro no estaba en la lista de unidades de medida, así que
+    # "$19 x m" se leía como el precio del producto y dejaba papeles a $16 y $20.
+    ("jumbo, precio por metro",
+     ["$17.390", "$24.490", "$19 x m", "Elite", "Papel Higiénico Elite Ultra Suave Doble Hoja 50 m 18 un."],
+     (17390, None)),
+    ("jumbo, precio por metro primero",
+     ["$12 x m", "$1.090", "$1.290", "Family Care", "Papel Higiénico Family Care Doble Hoja 22 m 4 un."],
+     (1090, None)),
+    ("jumbo, precio por rollo",
+     ["$9.890", "$412 x rollo", "Scott", "Papel Higiénico Scott Rindemax Doble Hoja 22 m 24 un."],
+     (9890, None)),
 ]
 
 

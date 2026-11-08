@@ -51,6 +51,59 @@ VARIANTES = [
 ]
 
 
+# Marcas reconocidas en las veinte categorías obtenidas, en forma normalizada.
+#
+# Dos productos de marcas distintas no son el mismo producto aunque coincidan el
+# formato, la variante y casi todo el texto: «Leche Soprole Sin Lactosa Entera 1 L» y
+# «Leche entera surlat sin lactosa 1 l» tienen 81 de similitud, el mismo formato y las
+# mismas variantes, y son productos diferentes.
+#
+# El listado se construyó recorriendo los nombres del conjunto obtenido y aplicando un
+# criterio fijo: se incluyen marcas de fabricante y marcas propias de cadena; se excluyen
+# líneas de producto de una misma marca («Tucapel Blue», «Miraflores Primavera»),
+# descriptores («gourmet», «especial», «premium»), tipos («basmati», «arabica») y orígenes
+# («española», «colombia»). Las marcas propias importan: la revisión manual trató
+# Cuisine & Co (Cencosud) y Máxima (Unimarc) como productos distintos aunque el contenido
+# sea equivalente, y esta regla reproduce ese criterio.
+MARCAS = [
+    # Despensa
+    "miraflores", "tucapel", "banquete", "iansa", "campesino", "coliseo", "specia",
+    "chef", "belmont", "natura", "huasco", "olitalia", "montecristo", "kardamili",
+    # «La Española» y «Las Doscientas» son marcas de aceite de oliva, no orígenes:
+    # se agregaron al revisar los pares de la canasta, que emparejaba La Española con
+    # Banquete por 82 de similitud. Tras normalizar quedan en una sola palabra.
+    "espanola", "doscientas",
+    "lobos", "carmencita", "biosal", "collico", "mont blanc", "ambrosoli",
+    # Conservas y salsas
+    "robinson crusoe", "van camp", "san jose", "angelmo", "hellmann", "kraft",
+    "alacena", "traverso", "mayodeli", "watt", "quilvo", "dalfour",
+    # Pastas
+    "lucchetti", "carozzi", "talliani", "trattoria",
+    # Lácteos
+    "soprole", "colun", "surlat", "loncoleche", "nido", "danone", "quillayes",
+    # Desayuno
+    "nescafe", "dolca", "juan valdez", "monterrey", "cruzeiro", "premier", "marley",
+    "twinings", "lipton", "dilmah", "mildred", "mystic", "supremo",
+    "zucaritas", "zucosos", "trix", "milo", "kellogg", "chocapic", "krispis",
+    "fitness", "cola cao", "nestle",
+    # Galletas
+    "triton", "nik", "mckay", "kuky", "frac", "criollitas", "oreo", "costa", "arcor",
+    "selz", "dulcita", "rigochoc", "alteza",
+    # Limpieza
+    "omo", "ariel", "drive", "rinso", "quix", "downy", "comfort", "popeye", "igenix",
+    "fuzol",
+    # Cuidado personal
+    "dove", "palmolive", "elite", "ballerina", "trianon", "sancy", "simond", "simonds",
+    "kadus", "pantene", "head shoulders", "sedal", "elvive", "fructis",
+    "herbal essences", "tresemme", "umai", "familand",
+    "colgate", "sensodyne", "pepsodent", "oral b", "aquafresh",
+    "scott", "confort", "favorita", "noble", "swan",
+    # Marcas propias de cadena: no son el mismo producto entre cadenas
+    "cuisine", "maxima", "merkat", "nuestra cocina", "acuenta", "great value",
+]
+_MARCAS = [tuple(m.split()) for m in MARCAS]
+
+
 def sin_tildes(texto: str) -> str:
     return "".join(c for c in unicodedata.normalize("NFD", texto) if unicodedata.category(c) != "Mn")
 
@@ -124,6 +177,37 @@ def variantes(nombre: str) -> frozenset[str]:
     return frozenset(v for v in VARIANTES if v in t)
 
 
+def marcas(nombre: str) -> frozenset[str]:
+    """
+    Marcas reconocidas en el nombre.
+
+    La comparación es por secuencia de palabras y no por subcadena: «natural» no debe
+    activar la marca «Natura», ni «confortable» la marca «Confort».
+    """
+    palabras = tuple(normalizar(nombre).split())
+    encontradas = set()
+    for marca in _MARCAS:
+        n = len(marca)
+        if any(palabras[i:i + n] == marca for i in range(len(palabras) - n + 1)):
+            encontradas.add(" ".join(marca))
+    return frozenset(encontradas)
+
+
+def marcas_compatibles(nombre_a: str, nombre_b: str) -> bool:
+    """
+    Si ambos nombres declaran marca, tienen que compartir al menos una.
+
+    Cuando en alguno de los dos no se reconoce ninguna marca la regla no opina: el
+    nombre no alcanza para decidir y descartar el par introduciría más falsos negativos
+    que aciertos. Basta con que compartan una marca, de modo que «Arroz Miraflores
+    Primavera» y «Arroz Miraflores» siguen siendo compatibles.
+    """
+    ma, mb = marcas(nombre_a), marcas(nombre_b)
+    if not ma or not mb:
+        return True
+    return bool(ma & mb)
+
+
 @dataclass(frozen=True)
 class Candidato:
     a: str          # nombre en la cadena A
@@ -132,6 +216,8 @@ class Candidato:
     formato_igual: bool
     variantes_iguales: bool
     numeros_iguales: bool
+    # Con valor por omisión para no alterar el orden posicional del resto
+    marcas_compatibles: bool = True
 
 
 def similitud(nombre_a: str, nombre_b: str) -> float:
@@ -165,5 +251,6 @@ def candidatos(productos_a: Iterable[dict], productos_b: Iterable[dict],
                 formato_igual=formato(pa["nombre"]) == formato(mejor["nombre"]),
                 variantes_iguales=variantes(pa["nombre"]) == variantes(mejor["nombre"]),
                 numeros_iguales=numeros(pa["nombre"]) == numeros(mejor["nombre"]),
+                marcas_compatibles=marcas_compatibles(pa["nombre"], mejor["nombre"]),
             ))
     return salida

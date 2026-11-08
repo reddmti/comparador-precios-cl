@@ -3,7 +3,7 @@ Carga de productos obtenidos a la base de datos.
 
 Es el paso que une la extracción con la consulta: toma los productos que entrega el
 scraper, los agrupa en productos equivalentes con el mismo criterio evaluado en el
-informe (formato, variantes, números y similitud sobre el umbral) y registra el precio
+informe (formato, variantes, números, marca y similitud sobre el umbral) y registra el precio
 del día. Si un producto ya existe, se le agrega la variante de la cadena; si el precio
 del día ya fue registrado, se actualiza en lugar de duplicarse.
 
@@ -21,7 +21,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from emparejar import formato, normalizar, numeros, similitud, variantes  # noqa: E402
+from emparejar import (  # noqa: E402
+    formato, marcas_compatibles, normalizar, numeros, similitud, variantes,
+)
 from modelo import Cadena, ItemLista, Precio, Producto, VariantePorCadena, crear_sesion  # noqa: E402
 
 UMBRAL = 80  # el seleccionado en la evaluación: 90,6% de precisión y 81,4% de cobertura
@@ -56,6 +58,11 @@ def buscar_producto(sesion, nombre: str, cadena_id: int) -> Producto | None:
     objetivo = normalizar(nombre)
     for c in candidatos:
         if numeros(c.nombre_normalizado) != nums:
+            continue
+        # Marcas distintas, productos distintos: «Leche Soprole Sin Lactosa Entera» y
+        # «Leche entera surlat sin lactosa» comparten formato, variantes y 87 de
+        # similitud, y no son el mismo producto.
+        if not marcas_compatibles(nombre, c.nombre_normalizado):
             continue
         s = similitud(nombre, c.nombre_normalizado)
         # Un producto que ya tiene variante de esta cadena solo se reutiliza si el
@@ -163,6 +170,8 @@ def emparejar_texto(sesion, texto: str) -> Producto | None:
         # escribe «spaghetti lucchetti» acepta el «N°5», mientras que quien escribe
         # «spaghetti n°3» no debe recibir el N°5.
         if not nums_txt <= numeros(producto.nombre_normalizado):
+            continue
+        if not marcas_compatibles(objetivo, producto.nombre_normalizado):
             continue
         s = similitud(objetivo, producto.nombre_normalizado)
         if s > mejor_score:
