@@ -1,0 +1,53 @@
+# Obtiene los precios del día en las tres cadenas y los registra en la base remota.
+#
+# Corre una vez al día de madrugada en Chile (09:00 UTC = 06:00 en horario de
+# invierno) y también puede lanzarse a mano desde la pestaña Actions.
+#
+# Requiere un único secreto en el repositorio: DATABASE_URL, con la misma cadena de
+# conexión que usa la API.
+
+name: Actualizar precios
+
+on:
+  schedule:
+    - cron: "0 9 * * *"
+  workflow_dispatch:
+    inputs:
+      consultas:
+        description: "Consultas a obtener, separadas por espacio (vacío = todas)"
+        required: false
+        default: ""
+
+concurrency:
+  group: actualizar-precios
+  cancel-in-progress: false
+
+jobs:
+  extraer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt
+
+      - name: Instalar Chromium
+        run: python -m playwright install --with-deps chromium
+
+      - name: Obtener y cargar los precios
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          CONSULTAS: ${{ github.event.inputs.consultas }}
+        run: |
+          if [ -z "$CONSULTAS" ]; then
+            CONSULTAS="arroz fideos aceite azucar leche yogurt cafe te harina sal atun mayonesa mermelada galletas cereal detergente 'papel higienico' shampoo jabon 'pasta de dientes'"
+          fi
+          eval "python src/cargar.py --extraer $CONSULTAS"

@@ -97,24 +97,43 @@ cadena, las reglas de equivalencia, la carga a la base y los endpoints.
 
 ## Despliegue
 
-Nada de esto está creado todavía. El orden que menos fricción genera es:
+El repositorio está en `github.com/reddmti/comparador-precios-cl` y la base de datos en
+Supabase (PostgreSQL 17). La API y la interfaz se despliegan desde el mismo repositorio
+como dos proyectos de Vercel distintos:
 
-1. **Repositorio.** `git init`, commit y subir a GitHub. Los `.gitignore` ya excluyen
-   `.env`, `node_modules/` y la base local.
-2. **Base de datos.** Crear un proyecto en Supabase, copiar la cadena de conexión en
-   `.env` como `DATABASE_URL` y ejecutar `python src/cargar.py datos.json` para
-   poblarla. Las tablas se crean solas en la primera ejecución.
-3. **API.** Desplegar en Railway apuntando a este repositorio, con `DATABASE_URL` como
-   variable de entorno y el comando `uvicorn api:app --host 0.0.0.0 --port $PORT`
-   ejecutado desde `src/`.
-4. **Interfaz.** Desplegar `front/` en Vercel con `VITE_API_URL` apuntando a la URL de
-   la API. Vercel reconoce Vite sin configuración adicional.
-5. **Actualización diaria.** Una acción programada de GitHub que ejecute
-   `python src/cargar.py --extraer <categorías>` una vez al día.
+| Proyecto | Directorio raíz | Variable de entorno |
+|---|---|---|
+| API | `.` (usa `api/index.py` y `vercel.json`) | `DATABASE_URL` |
+| Interfaz | `front` | `VITE_API_URL` |
+
+La conexión a Supabase usa el *pooler* (`aws-0-us-east-1.pooler.supabase.com:5432`) y no
+el host directo, porque este último solo resuelve en IPv6 y las funciones de Vercel
+salen por IPv4. `crear_sesion()` usa `NullPool` y omite la creación de tablas cuando
+detecta la variable `VERCEL`, de modo que cada invocación abra y cierre su conexión.
+
+Para trasladar una base local ya poblada en lugar de volver a consultar los sitios:
+
+```bash
+python src/migrar.py          # de comparador.db a DATABASE_URL
+```
+
+Copia las tablas en orden de dependencia conservando los identificadores y, al terminar,
+reajusta las secuencias de PostgreSQL.
+
+### Actualización diaria
+
+`.github/workflows/actualizar_precios.yml` obtiene las veinte consultas y registra el
+precio del día a las 09:00 UTC. Necesita un solo secreto en el repositorio:
+
+```bash
+gh secret set DATABASE_URL --repo reddmti/comparador-precios-cl
+```
+
+También se puede lanzar a mano desde la pestaña Actions, indicando qué consultas
+obtener.
 
 ## Qué falta
 
-- Crear las cuentas y desplegar según los pasos anteriores.
-- Programar la obtención diaria.
 - Ampliar la cobertura de categorías: con las 20 obtenidas, 547 productos quedan
   comparables en dos o más cadenas y 147 en las tres.
+- Incorporar Líder y Tottus, que siguen sin implementar.
