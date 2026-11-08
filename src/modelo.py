@@ -149,8 +149,17 @@ CADENAS_INICIALES = [
 
 def crear_sesion(url: str | None = None, echo: bool = False):
     """Crea el esquema si no existe, siembra las cadenas y devuelve una fábrica de sesiones."""
-    motor = create_engine(url or url_base_datos(), echo=echo, future=True)
-    Base.metadata.create_all(motor)
+    url = url or url_base_datos()
+    opciones = {}
+    if os.environ.get("VERCEL"):
+        # En un entorno sin servidor cada invocación es un proceso distinto: mantener
+        # un pool propio agotaría las conexiones de la base. El pooler de Supabase ya
+        # cumple ese rol.
+        from sqlalchemy.pool import NullPool
+        opciones["poolclass"] = NullPool
+    motor = create_engine(url, echo=echo, future=True, **opciones)
+    if not os.environ.get("VERCEL"):
+        Base.metadata.create_all(motor)
     Sesion = sessionmaker(motor, expire_on_commit=False)
     with Sesion() as s:
         if s.query(Cadena).count() == 0:

@@ -1,0 +1,8 @@
+-r requirements.txt
+
+# Solo para obtener los datos y correr las pruebas, no para servir la API
+playwright==1.62.0
+pytest==9.1.1
+requests==2.32.3
+beautifulsoup4==4.12.3
+lxml==5.2.2
