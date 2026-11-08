@@ -1,0 +1,8 @@
+.env
+comparador.db
+__pycache__/
+.pytest_cache/
+*.pyc
+front/node_modules/
+front/dist/
+front/.env
