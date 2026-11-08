@@ -59,7 +59,13 @@ class PrecioCadena(BaseModel):
 
 class ProductoComparado(BaseModel):
     id: int
+    # Nombre para mostrar: el más corto de los que usan las cadenas. El nombre
+    # normalizado no sirve para leer, porque `normalizar()` descarta «sin» junto a las
+    # demás palabras de relleno y «sin lactosa» queda como «lactosa», que dice lo
+    # contrario. Esa lista no se toca: cambiarla alteraría la similitud y, con ella,
+    # las medidas de precisión y cobertura ya informadas.
     nombre: str
+    nombre_normalizado: str
     categoria: str
     formato: str | None = None
     precios: list[PrecioCadena]
@@ -135,9 +141,12 @@ def armar_comparacion(producto: Producto, precios: list[PrecioCadena]) -> Produc
         formato = f"{float(producto.formato_cantidad):g} {producto.formato_unidad}"
     menor = min((p.precio for p in precios), default=None)
     mayor = max((p.precio for p in precios), default=None)
+    # El más corto suele ser el que menos adornos de catálogo arrastra
+    nombre = min((p.nombre_en_cadena for p in precios), key=len, default=None)
     return ProductoComparado(
         id=producto.id,
-        nombre=producto.nombre_normalizado,
+        nombre=nombre or producto.nombre_normalizado,
+        nombre_normalizado=producto.nombre_normalizado,
         categoria=producto.categoria,
         formato=formato,
         precios=precios,
@@ -242,7 +251,10 @@ def comparar_lista(entrada: ListaEntrada, sesion=Depends(obtener_sesion)):
             comparables.append((producto, cantidad))
         else:
             faltan = ", ".join(sorted(cadenas_activas - disponibles)) or "ninguna cadena"
-            sin_comparacion.append(f"{producto.nombre_normalizado} (sin precio en {faltan})")
+            visibles = precios.get(producto.id, [])
+            nombre = min((x.nombre_en_cadena for x in visibles), key=len,
+                         default=producto.nombre_normalizado)
+            sin_comparacion.append(f"{nombre} (sin precio en {faltan})")
 
     totales: dict[str, int] = defaultdict(int)
     for producto, cantidad in comparables:

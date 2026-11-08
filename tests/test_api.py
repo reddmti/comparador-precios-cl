@@ -93,6 +93,21 @@ def test_buscar_devuelve_los_precios_de_cada_cadena(cliente):
     assert producto["ahorro"] == 1000  # 3.090 - 2.090
 
 
+def test_el_nombre_que_se_muestra_es_el_de_la_tienda(cliente):
+    """
+    El nombre visible sale de las cadenas, no de `nombre_normalizado`.
+
+    `normalizar()` descarta «sin» como palabra de relleno, de modo que el nombre
+    normalizado de un producto «sin lactosa» queda como «lactosa» y dice lo contrario.
+    Esa lista no se puede tocar sin alterar la similitud y las medidas informadas, así
+    que lo que se muestra tiene que venir de los nombres de las tiendas.
+    """
+    r = cliente.get("/buscar", params={"q": "aceite maravilla miraflores"})
+    producto = r.json()[0]
+    assert producto["nombre"] in {p["nombre_en_cadena"] for p in producto["precios"]}
+    assert producto["nombre_normalizado"] == "aceite maravilla miraflores"
+
+
 def test_lista_compara_solo_lo_que_existe_en_todas_las_cadenas(cliente):
     r = cliente.post("/listas", json={"sesion_id": "prueba-0001", "items": [
         {"texto": "aceite de maravilla miraflores 900 ml", "cantidad": 2},
