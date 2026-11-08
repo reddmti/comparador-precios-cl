@@ -48,6 +48,20 @@ VARIANTES = [
     # Se incorporaron al revisar las mayores diferencias de precio de la canasta (E3).
     "para freir", "freir", "canola", "maravilla", "oliva", "vegetal", "soya", "pepita de uva",
     "antisarro", "whitening", "blanqueador", "suavizante", "matic", "polvo", "liquido",
+    # Formas de pasta: son productos distintos de la misma marca y formato, y el texto
+    # restante es casi idéntico. «Cabellitos Lucchetti 400 g» y «Canutos Lucchetti
+    # 400 g» alcanzan 81 de similitud y quedaban agrupados. Se usan raíces para que
+    # tomen singular y plural, y «corbat» para que «corbatas» y «corbatitas» cuenten
+    # como la misma forma.
+    "cabellit", "canut", "corbat", "espiral", "mostachol", "tallarin", "spaghetti",
+    "fettuccin", "penne", "rigatoni", "farfalle", "fusilli", "caracol", "dedalit",
+    "quifaro", "lasan", "codit", "pantruca", "ravioli", "quinoa",
+    # Las harinas se venden con y sin polvos de hornear, y no son intercambiables.
+    # Como «sin» y «con» son palabras de relleno, ambos nombres se normalizan igual y
+    # alcanzaban 100 de similitud. Estas dos entradas los separan sin tocar la
+    # normalización, igual que «sin lactosa» o «sin azucar». Se usa la forma corta
+    # porque Unimarc abrevia a «sin polvos» lo que Jumbo escribe completo.
+    "sin polvos", "con polvos",
 ]
 
 

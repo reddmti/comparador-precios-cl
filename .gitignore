@@ -1,5 +1,5 @@
 .env
-comparador.db
+comparador*.db
 __pycache__/
 .pytest_cache/
 *.pyc
