@@ -37,7 +37,10 @@ python src/cargar.py datos.json
 | Método | Ruta | Para qué sirve |
 |---|---|---|
 | GET | `/salud` | Estado del servicio y fecha de la última actualización |
+| GET | `/categorias` | Categorías disponibles, con cuántos productos son comparables |
+| GET | `/destacados?limite=6` | Productos donde hoy hay más diferencia entre cadenas |
 | GET | `/buscar?q=arroz` | Busca productos y entrega su precio en cada cadena |
+| GET | `/productos?categoria=arroz&orden=precio` | Listado paginado y ordenable, para categoría o búsqueda |
 | GET | `/productos/{id}` | Detalle de un producto con sus precios vigentes |
 | GET | `/productos/{id}/historial?dias=7` | Evolución del precio por cadena |
 | POST | `/listas` | Costo total de una lista de compras por cadena |
@@ -69,9 +72,27 @@ cp .env.example .env     # VITE_API_URL apunta a la API
 npm run dev              # http://localhost:5173
 ```
 
-Tiene dos vistas: buscar un producto y ver su precio en cada cadena, y escribir una
-lista de compras para obtener el costo total por cadena. No pide registro: la lista se
-asocia a un identificador anónimo que genera el propio navegador.
+Son seis pantallas, enrutadas por fragmento (`#/ruta`) para que cualquier URL del
+sitio se pueda recargar y compartir sin configurar reescrituras en el servidor:
+
+| Ruta | Pantalla |
+|---|---|
+| `#/` | Portada: qué se compara, cobertura del día y dónde más se gana hoy |
+| `#/categorias` | Las veinte categorías, con la proporción que se puede comparar |
+| `#/categoria/arroz` | Listado de una categoría, con filtro y orden |
+| `#/buscar?q=arroz` | Resultados de búsqueda, con la misma lista y controles |
+| `#/producto/392` | Detalle: precio por cadena, precio por unidad, enlaces e historial |
+| `#/lista` | Lista de compras: costo por cadena y qué conviene comprar en cada una |
+
+No pide registro: la lista se asocia a un identificador anónimo que genera el propio
+navegador, y lo que se escribe queda en `localStorage`.
+
+El sistema visual está en `src/estilos.css`. Tres reglas de contenido que conviene no
+romper al modificarlo: el verde nunca es el único portador de significado, porque donde
+hay verde hay además un ✓ y la palabra «más barato»; la ausencia de dato se escribe
+«sin información» y nunca $0 ni un guion; y una diferencia bajo el 5% se declara mínima
+en lugar de celebrarla. Las cifras de la canasta que muestran la portada y la lista
+salen de `src/medicion.js`, que es la medición del informe de E3 y no un texto suelto.
 
 ## Estructura
 
@@ -92,7 +113,7 @@ asocia a un identificador anónimo que genera el propio navegador.
 python -m pytest
 ```
 
-Son 35 casos que no tocan la red: la lectura de precios con tarjetas reales de cada
+Son 41 casos que no tocan la red: la lectura de precios con tarjetas reales de cada
 cadena, las reglas de equivalencia, la carga a la base y los endpoints.
 
 ## Despliegue
@@ -134,6 +155,8 @@ obtener.
 
 ## Qué falta
 
-- Ampliar la cobertura de categorías: con las 20 obtenidas, 547 productos quedan
+- Ampliar la cobertura de categorías: con las 20 obtenidas, 563 productos quedan
   comparables en dos o más cadenas y 147 en las tres.
+- Acumular historial: hoy la base tiene un solo día de precios, así que el gráfico de
+  evolución del detalle avisa que todavía no hay serie en lugar de dibujar una recta.
 - Incorporar Líder y Tottus, que siguen sin implementar.

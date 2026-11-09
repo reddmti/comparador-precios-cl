@@ -122,5 +122,31 @@ def test_lista_compara_solo_lo_que_existe_en_todas_las_cadenas(cliente):
     assert datos["ahorro_vs_mas_cara"] == 2000       # (3.090 - 2.090) x 2 unidades
 
 
+def test_listado_separa_los_productos_que_se_pueden_comparar(cliente):
+    """La categoría «aceite» tiene dos productos y solo uno está en más de una cadena."""
+    datos = cliente.get("/productos", params={"categoria": "aceite"}).json()
+    assert datos["total"] == 2
+    assert datos["comparables"] == 1
+    # Por omisión ordena por diferencia relativa, y el de una sola cadena no tiene
+    assert datos["items"][0]["nombre_normalizado"] == "aceite maravilla miraflores"
+
+    solo = cliente.get("/productos",
+                       params={"categoria": "aceite", "solo_comparables": True}).json()
+    assert solo["total"] == 1
+
+
+def test_listado_ordena_por_precio_y_pagina(cliente):
+    por_precio = cliente.get(
+        "/productos", params={"categoria": "aceite", "orden": "precio"}).json()
+    assert [p["menor_precio"] for p in por_precio["items"]] == [2090, 8990]
+
+    segunda = cliente.get(
+        "/productos",
+        params={"categoria": "aceite", "orden": "precio", "limite": 1, "desde": 1}).json()
+    assert segunda["total"] == 2                 # el total es el del listado completo
+    assert len(segunda["items"]) == 1            # y la página trae solo lo pedido
+    assert segunda["items"][0]["menor_precio"] == 8990
+
+
 def test_producto_inexistente_responde_404(cliente):
     assert cliente.get("/productos/999999").status_code == 404

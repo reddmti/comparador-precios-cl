@@ -26,7 +26,7 @@ from emparejar import (  # noqa: E402
 )
 from modelo import Cadena, ItemLista, Precio, Producto, VariantePorCadena, crear_sesion  # noqa: E402
 
-UMBRAL = 80  # el seleccionado en la evaluación: 90,6% de precisión y 81,4% de cobertura
+UMBRAL = 80  # el seleccionado en la evaluación: 96,0% de precisión y 81,4% de cobertura
 
 
 def clave_variantes(nombre: str) -> str:
@@ -140,9 +140,13 @@ def cargar_productos(sesion, productos: list[dict], fecha: date | None = None) -
     return resumen
 
 
-# El texto que escribe una persona es más pobre que el nombre publicado por la tienda,
-# así que se exige un umbral más alto para no emparejar marcas distintas.
-UMBRAL_TEXTO_LIBRE = 88
+# El texto que escribe una persona es más pobre que el nombre publicado por la tienda:
+# «leche soprole entera 1 l» contra «Leche Soprole Entera Natural 1 L» da 83 de
+# similitud, porque la palabra que falta cuesta puntos. Este umbral estuvo en 88 para
+# no emparejar marcas distintas, y con eso solo 3 de 15 listas realistas encontraban su
+# producto. La cuarta regla de rechazo, la de marca, se hace cargo de ese riesgo de
+# forma directa, así que el umbral vuelve al 80 que seleccionó la evaluación.
+UMBRAL_TEXTO_LIBRE = 80
 
 
 def emparejar_texto(sesion, texto: str) -> Producto | None:

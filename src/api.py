@@ -89,6 +89,13 @@ class Categoria(BaseModel):
     comparables: int   # con precio en dos o más cadenas
 
 
+class PaginaProductos(BaseModel):
+    """Una página de resultados. `total` es el largo completo, no el de la página."""
+    total: int
+    comparables: int
+    items: list[ProductoComparado]
+
+
 class ItemEntrada(BaseModel):
     texto: str = Field(min_length=2, max_length=120)
     cantidad: int = Field(default=1, ge=1, le=99)
@@ -105,6 +112,15 @@ class TotalCadena(BaseModel):
     items_con_precio: int
 
 
+class ItemComparado(BaseModel):
+    """Una línea de la lista, con lo que se escribió y lo que se encontró."""
+    texto: str
+    cantidad: int
+    producto: ProductoComparado | None = None
+    entra_al_total: bool = False
+    cadenas_que_faltan: list[str] = Field(default_factory=list)
+
+
 class ListaComparada(BaseModel):
     lista_id: int
     # Los totales se calculan solo sobre los productos que tienen precio en todas las
@@ -116,6 +132,12 @@ class ListaComparada(BaseModel):
     items_sin_comparacion: list[str]
     items_reconocidos: list[ProductoComparado]
     items_no_reconocidos: list[str]
+    # Cada línea escrita, en el orden en que se escribió
+    items: list[ItemComparado] = Field(default_factory=list)
+    # Comprando cada producto donde está más barato, sobre la misma canasta comparable
+    total_optimo: int = 0
+    optimo_vs_mas_barata: int = 0
+    optimo_vs_mas_cara: int = 0
 
 
 # ── Consultas internas ───────────────────────────────────────────────────────
@@ -275,6 +297,63 @@ def buscar(q: str = Query(min_length=2, max_length=80),
     return comparados
 
 
+@app.get("/productos", response_model=PaginaProductos,
+         summary="Lista productos de una categoría o de una búsqueda, ordenados")
+def listar_productos(
+    q: str | None = Query(default=None, max_length=80),
+    categoria: str | None = Query(default=None, max_length=80),
+    orden: str = Query(default="diferencia", pattern="^(diferencia|precio|nombre)$"),
+    solo_comparables: bool = Query(default=False),
+    limite: int = Query(default=24, ge=1, le=200),
+    desde: int = Query(default=0, ge=0),
+    sesion=Depends(obtener_sesion),
+):
+    """
+    El listado que usan la pantalla de categoría y la de resultados de búsqueda.
+
+    Ordenar por diferencia obliga a conocer el precio de todos los productos que
+    califican antes de recortar la página, de modo que el filtro se aplica en la base
+    y el orden en Python. Una categoría tiene del orden de cien productos, así que el
+    costo es acotado; el filtro por categoría es justamente lo que lo mantiene así.
+    """
+    consulta = select(Producto)
+    if categoria:
+        consulta = consulta.where(Producto.categoria == categoria)
+    for termino in [x for x in normalizar(q or "").split() if x]:
+        consulta = consulta.where(Producto.nombre_normalizado.contains(termino))
+    productos = sesion.execute(consulta).scalars().all()
+
+    precios = precios_vigentes(sesion, [p.id for p in productos])
+    filas = []
+    for producto in productos:
+        lista = precios.get(producto.id, [])
+        if solo_comparables and len(lista) < 2:
+            continue
+        diferencia = 0.0
+        if len(lista) >= 2:
+            menor, mayor = lista[0].precio, lista[-1].precio
+            # Mismo resguardo que en /destacados: una razón imposible es un error de
+            # lectura, y ordenar por diferencia lo pondría primero. Se lista igual,
+            # pero sin premiarlo con el primer lugar.
+            if menor > 0 and mayor / menor <= RAZON_INVEROSIMIL:
+                diferencia = (mayor - menor) / menor
+        filas.append((producto, lista, diferencia))
+
+    if orden == "precio":
+        filas.sort(key=lambda f: f[1][0].precio if f[1] else 10**9)
+    elif orden == "nombre":
+        filas.sort(key=lambda f: f[0].nombre_normalizado)
+    else:
+        filas.sort(key=lambda f: f[2], reverse=True)
+
+    pagina = filas[desde:desde + limite]
+    return PaginaProductos(
+        total=len(filas),
+        comparables=sum(1 for _, lista, _ in filas if len(lista) > 1),
+        items=[armar_comparacion(producto, lista) for producto, lista, _ in pagina],
+    )
+
+
 @app.get("/productos/{producto_id}", response_model=ProductoComparado,
          summary="Detalle de un producto con sus precios vigentes")
 def detalle(producto_id: int, sesion=Depends(obtener_sesion)):
@@ -313,6 +392,7 @@ def comparar_lista(entrada: ListaEntrada, sesion=Depends(obtener_sesion)):
 
     reconocidos: list[tuple[Producto, int]] = []
     no_reconocidos: list[str] = []
+    por_texto: dict[str, Producto] = {}
     for item in entrada.items:
         producto = emparejar_texto(sesion, item.texto)
         sesion.add(ItemLista(lista_id=lista.id, texto_original=item.texto,
@@ -320,6 +400,7 @@ def comparar_lista(entrada: ListaEntrada, sesion=Depends(obtener_sesion)):
                              cantidad=item.cantidad))
         if producto:
             reconocidos.append((producto, item.cantidad))
+            por_texto[item.texto] = producto
         else:
             no_reconocidos.append(item.texto)
     sesion.commit()
@@ -331,16 +412,29 @@ def comparar_lista(entrada: ListaEntrada, sesion=Depends(obtener_sesion)):
     # contrario se compararían canastas distintas y la cadena con menos cobertura
     # aparecería como la más barata por el solo hecho de tener menos productos.
     comparables, sin_comparacion = [], []
-    for producto, cantidad in reconocidos:
+    detalle_items: list[ItemComparado] = []
+    for item in entrada.items:
+        par = por_texto.get(item.texto)
+        if par is None:
+            detalle_items.append(ItemComparado(texto=item.texto, cantidad=item.cantidad))
+            continue
+        producto = par
         disponibles = {x.cadena for x in precios.get(producto.id, [])}
-        if cadenas_activas and disponibles == cadenas_activas:
-            comparables.append((producto, cantidad))
+        entra = bool(cadenas_activas) and disponibles == cadenas_activas
+        if entra:
+            comparables.append((producto, item.cantidad))
         else:
             faltan = ", ".join(sorted(cadenas_activas - disponibles)) or "ninguna cadena"
             visibles = precios.get(producto.id, [])
             nombre = min((x.nombre_en_cadena for x in visibles), key=len,
                          default=producto.nombre_normalizado)
             sin_comparacion.append(f"{nombre} (sin precio en {faltan})")
+        detalle_items.append(ItemComparado(
+            texto=item.texto, cantidad=item.cantidad,
+            producto=armar_comparacion(producto, precios.get(producto.id, [])),
+            entra_al_total=entra,
+            cadenas_que_faltan=sorted(cadenas_activas - disponibles),
+        ))
 
     totales: dict[str, int] = defaultdict(int)
     for producto, cantidad in comparables:
@@ -349,6 +443,12 @@ def comparar_lista(entrada: ListaEntrada, sesion=Depends(obtener_sesion)):
 
     recomendada = min(totales, key=totales.get) if totales else None
     ahorro = (max(totales.values()) - min(totales.values())) if totales else 0
+
+    # Comprar cada producto donde está más barato: es la cifra que justifica comparar
+    # producto a producto en vez de elegir una sola cadena, y en la medición de la
+    # evaluación resultó siete veces mayor que elegir la cadena más barata.
+    optimo = sum(min(p.precio for p in precios[producto.id]) * cantidad
+                 for producto, cantidad in comparables if precios.get(producto.id))
 
     return ListaComparada(
         lista_id=lista.id,
@@ -360,4 +460,8 @@ def comparar_lista(entrada: ListaEntrada, sesion=Depends(obtener_sesion)):
         items_sin_comparacion=sin_comparacion,
         items_reconocidos=[armar_comparacion(p, precios.get(p.id, [])) for p, _ in reconocidos],
         items_no_reconocidos=no_reconocidos,
+        items=detalle_items,
+        total_optimo=optimo,
+        optimo_vs_mas_barata=(min(totales.values()) - optimo) if totales else 0,
+        optimo_vs_mas_cara=(max(totales.values()) - optimo) if totales else 0,
     )
