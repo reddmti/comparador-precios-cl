@@ -31,6 +31,9 @@ CREATE TABLE IF NOT EXISTS variantes_por_cadena (
     cadena_id         SMALLINT NOT NULL REFERENCES cadenas(id) ON DELETE CASCADE,
     nombre_en_cadena  TEXT NOT NULL,
     url_producto      TEXT,
+    -- Dirección de la foto en el servidor de la cadena. Se guarda la dirección, nunca
+    -- el archivo: la imagen la sirve la cadena directamente al navegador del visitante.
+    imagen_url        TEXT,
     -- Similitud con la que se asoció a su producto; permite auditar el emparejamiento
     -- y rehacer las asociaciones dudosas sin volver a obtener los datos.
     score             NUMERIC(5, 2),

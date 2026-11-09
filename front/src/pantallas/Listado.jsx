@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import { listarProductos, numero } from "../api";
+import { CADENAS, listarProductos, numero } from "../api";
 import { Cargando, ErrorCarga, TarjetaProducto, usePeticion } from "../componentes";
 
 const ORDENES = [
@@ -19,12 +19,13 @@ const POR_PAGINA = 24;
 export default function Listado({ categoria, q, textoCargando, vacio, mostrarRecuento = true }) {
   const [orden, setOrden] = useState("diferencia");
   const [soloComparables, setSoloComparables] = useState(false);
+  const [cadena, setCadena] = useState(null);
   const [pagina, setPagina] = useState(0);
 
   const limite = POR_PAGINA * (pagina + 1);
   const { cargando, error, datos, reintentar } = usePeticion(
-    () => listarProductos({ categoria, q, orden, soloComparables, limite, desde: 0 }),
-    [categoria, q, orden, soloComparables, limite],
+    () => listarProductos({ categoria, q, cadena, orden, soloComparables, limite, desde: 0 }),
+    [categoria, q, cadena, orden, soloComparables, limite],
   );
 
   const cambiar = (accion) => { accion(); setPagina(0); };
@@ -34,7 +35,7 @@ export default function Listado({ categoria, q, textoCargando, vacio, mostrarRec
       {/* Sin resultados no hay nada que ordenar ni filtrar: los controles solo
           aparecen si hay lista, o si fue el propio filtro el que la dejó vacía. */}
       <div className="fila-chips" style={{ justifyContent: "space-between" }}
-           hidden={Boolean(datos) && datos.items.length === 0 && !soloComparables}>
+           hidden={Boolean(datos) && datos.items.length === 0 && !soloComparables && !cadena}>
         <div className="fila-chips" role="group" aria-label="Filtrar">
           <button type="button" className="chip" aria-pressed={!soloComparables}
                   onClick={() => cambiar(() => setSoloComparables(false))}>
@@ -44,6 +45,14 @@ export default function Listado({ categoria, q, textoCargando, vacio, mostrarRec
                   onClick={() => cambiar(() => setSoloComparables(true))}>
             Solo comparables
           </button>
+          {/* Filtrar por cadena responde a «qué hay en la que me queda cerca»; los
+              precios de las demás se siguen mostrando, para no perder la comparación. */}
+          {CADENAS.map((c) => (
+            <button key={c} type="button" className="chip" aria-pressed={cadena === c}
+                    onClick={() => cambiar(() => setCadena(cadena === c ? null : c))}>
+              {c}
+            </button>
+          ))}
         </div>
         <div className="fila-chips">
           <span className="secundario" id="etiqueta-orden">Ordenar</span>
@@ -67,11 +76,12 @@ export default function Listado({ categoria, q, textoCargando, vacio, mostrarRec
         <>
           {/* La pantalla de categoría ya informa el total en su encabezado; aquí solo
               se repite cuando el filtro lo cambia, para no decir dos veces lo mismo. */}
-          {(mostrarRecuento || soloComparables) && (
+          {(mostrarRecuento || soloComparables || cadena) && (
             <p className="secundario" role="status">
               {soloComparables
                 ? `${numero(datos.total)} productos con precio en dos o más cadenas`
                 : `${numero(datos.total)} productos · ${numero(datos.comparables)} se pueden comparar`}
+              {cadena ? ` · disponibles en ${cadena}` : ""}
             </p>
           )}
           <div className="grilla-productos">

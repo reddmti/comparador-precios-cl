@@ -1,5 +1,5 @@
 import { numero, obtenerCategorias } from "../api";
-import { Cargando, ErrorCarga, usePeticion } from "../componentes";
+import { Cargando, ErrorCarga, Foto, usePeticion } from "../componentes";
 import { enlaceCategoria } from "../enrutador";
 
 export default function Categorias() {
@@ -27,9 +27,12 @@ export default function Categorias() {
             const pct = c.productos ? Math.round((c.comparables / c.productos) * 100) : 0;
             return (
               <a key={c.nombre} href={enlaceCategoria(c.nombre)}>
-                <div className="titulo">
-                  <strong>{c.nombre}</strong>
-                  <span className="num secundario">{numero(c.productos)}</span>
+                <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                  <Foto producto={{ imagen_url: c.imagen_url, nombre: c.nombre }} clase="chica" />
+                  <div className="titulo" style={{ flex: 1 }}>
+                    <strong>{c.nombre}</strong>
+                    <span className="num secundario">{numero(c.productos)}</span>
+                  </div>
                 </div>
                 <span className="barra-pista" aria-hidden="true">
                   <span style={{ width: `${pct}%` }} />

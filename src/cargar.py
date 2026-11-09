@@ -115,12 +115,16 @@ def cargar_productos(sesion, productos: list[dict], fecha: date | None = None) -
         if variante is None:
             variante = VariantePorCadena(
                 producto_id=producto.id, cadena_id=cadena.id, nombre_en_cadena=nombre,
-                url_producto=p.get("url"),
+                url_producto=p.get("url"), imagen_url=p.get("imagen_url"),
                 score=similitud(nombre, producto.nombre_normalizado),
             )
             sesion.add(variante)
             sesion.flush()
             resumen["variantes_nuevas"] += 1
+        elif p.get("imagen_url") and not variante.imagen_url:
+            # Una variante registrada antes de que se capturaran fotos se completa en
+            # la siguiente pasada, sin tener que vaciar y recargar la base.
+            variante.imagen_url = p["imagen_url"]
 
         registro = sesion.query(Precio).filter_by(
             variante_id=variante.id, fecha_registro=fecha).one_or_none()

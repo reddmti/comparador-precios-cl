@@ -1,5 +1,5 @@
 import { CADENAS, fechaCorta, fechaLarga, leerProducto, obtenerHistorial, obtenerProducto, pesos } from "../api";
-import { Cargando, ErrorCarga, FilaCadena, Migas, usePeticion } from "../componentes";
+import { Cargando, ErrorCarga, FilaCadena, Foto, Migas, usePeticion } from "../componentes";
 import { enlaceCategoria } from "../enrutador";
 
 const COLORES = { Jumbo: "#1d4ed8", "Santa Isabel": "#c2410c", Unimarc: "#15803d" };
@@ -42,32 +42,33 @@ export default function Detalle({ id }) {
         </div>
       </div>
 
-      {p.comparable && (
-        <section className="bloque" style={{ gap: 12 }}>
-          <div className="columna" style={{ gap: 2 }}>
-            <span className="marbarato">✓ Más barato en {p.cadena_mas_barata}</span>
-            <span className="precio-ganador detalle">{pesos(p.menor_precio)}</span>
+      <section className="bloque" style={{ display: "grid", gridTemplateColumns: "minmax(0, 220px) minmax(0, 1fr)", gap: 24, alignItems: "start" }}>
+        <Foto producto={p} clase="grande" />
+        {p.comparable ? (
+          <div className="columna gap-12">
+            <div className="columna" style={{ gap: 2 }}>
+              <span className="marbarato">✓ Más barato en {p.cadena_mas_barata}</span>
+              <span className="precio-ganador detalle">{pesos(p.menor_precio)}</span>
+            </div>
+            <span className={`pill ${p.minima ? "minima" : "ahorro"}`} style={{ alignSelf: "flex-start" }}>
+              {p.diferencia}
+            </span>
+            <div role="list" className="filas-cadena">
+              {p.filas.map((fila) => <FilaCadena key={fila.cadena} fila={fila} />)}
+            </div>
           </div>
-          <span className={`pill ${p.minima ? "minima" : "ahorro"}`} style={{ alignSelf: "flex-start" }}>
-            {p.diferencia}
-          </span>
-          <div role="list" className="filas-cadena">
-            {p.filas.map((fila) => <FilaCadena key={fila.cadena} fila={fila} />)}
+        ) : (
+          <div className="columna gap-8">
+            <span className="secundario medio" style={{ fontWeight: 600 }}>
+              Solo en {p.cadena_mas_barata} · no se puede comparar
+            </span>
+            <span className="precio-ganador solo detalle">{pesos(p.menor_precio)}</span>
+            <p className="secundario">
+              Las otras cadenas no publican este producto, o no pudimos asociarlo con el suyo.
+            </p>
           </div>
-        </section>
-      )}
-
-      {p.solo && (
-        <section className="bloque" style={{ gap: 6 }}>
-          <span className="secundario medio" style={{ fontWeight: 600 }}>
-            Solo en {p.cadena_mas_barata} · no se puede comparar
-          </span>
-          <span className="precio-ganador solo detalle">{pesos(p.menor_precio)}</span>
-          <p className="secundario">
-            Las otras cadenas no publican este producto, o no pudimos asociarlo con el suyo.
-          </p>
-        </section>
-      )}
+        )}
+      </section>
 
       <section className="columna gap-12">
         <h2>Precio en cada cadena</h2>
@@ -112,6 +113,8 @@ export default function Detalle({ id }) {
         })}
       </section>
 
+      <PorUnidad producto={p} />
+
       <Historial id={id} />
 
       <p className="secundario">
@@ -119,6 +122,54 @@ export default function Detalle({ id }) {
         visitante. Antes de decidir, revisa el enlace: en tienda puede ser distinto.
       </p>
     </main>
+  );
+}
+
+/**
+ * Comparación por unidad de medida.
+ *
+ * Es el dato que más veces cambia la decisión y el que menos se mira: la cadena con el
+ * precio más bajo no siempre es la que sale más barata por kilo o por litro, porque los
+ * envases difieren. Solo se muestra cuando las tres cifras existen y no son todas
+ * iguales; si no, el bloque no aporta nada y estorba.
+ */
+function PorUnidad({ producto }) {
+  const con = producto.precios.filter((x) => x.precio_por_unidad != null);
+  if (con.length < 2) return null;
+
+  const valores = con.map((x) => x.precio_por_unidad);
+  const menor = Math.min(...valores);
+  const mayor = Math.max(...valores);
+  if (menor === mayor) return null;
+
+  const baratoUnidad = con.find((x) => x.precio_por_unidad === menor);
+  const difiere = baratoUnidad.cadena !== producto.cadena_mas_barata;
+
+  return (
+    <section className="columna gap-12">
+      <h2>Precio por unidad de medida</h2>
+      <div className="bloque" style={{ gap: 12 }}>
+        <div role="list" className="filas-cadena">
+          {con.sort((a, b) => a.precio_por_unidad - b.precio_por_unidad).map((x) => (
+            <div key={x.cadena} role="listitem"
+                 className={`fila-cadena${x.precio_por_unidad === menor ? " mejor" : ""}`}>
+              <span className="nombre">
+                {x.precio_por_unidad === menor ? `✓ ${x.cadena}` : x.cadena}
+              </span>
+              <span className="barra" aria-hidden="true">
+                <span style={{ width: `${(x.precio_por_unidad / mayor) * 100}%` }} />
+              </span>
+              <span className="valor">{pesos(x.precio_por_unidad)}</span>
+            </div>
+          ))}
+        </div>
+        <p className="secundario">
+          {difiere
+            ? `Ojo: el precio más bajo está en ${producto.cadena_mas_barata}, pero por unidad de medida conviene ${baratoUnidad.cadena}. El envase no es del mismo tamaño en las dos.`
+            : `${baratoUnidad.cadena} es la más barata tanto en precio como por unidad de medida.`}
+        </p>
+      </div>
+    </section>
   );
 }
 

@@ -26,6 +26,29 @@ export function usePeticion(hacer, dependencias) {
   return { ...estado, reintentar: () => setIntento((n) => n + 1) };
 }
 
+/**
+ * Foto del producto, servida por la cadena de origen.
+ *
+ * Se guarda solo la dirección, nunca el archivo, así que la imagen puede no llegar:
+ * la cadena puede moverla, bloquear el enlace desde otro sitio o simplemente no tener
+ * foto para ese producto. El marco reserva el espacio desde el principio para que la
+ * tarjeta no salte al cargar, y si falla queda la inicial en lugar de un hueco roto.
+ */
+export function Foto({ producto, clase = "" }) {
+  const [falla, setFalla] = useState(false);
+  const url = producto.imagen_url;
+  return (
+    <div className={`foto ${clase}`.trim()}>
+      {url && !falla ? (
+        <img src={url} alt="" loading="lazy" decoding="async"
+             referrerPolicy="no-referrer" onError={() => setFalla(true)} />
+      ) : (
+        <span className="inicial" aria-hidden="true">{(producto.nombre || "?").trim()[0]}</span>
+      )}
+    </div>
+  );
+}
+
 export function Cargando({ texto, tarjetas = 4 }) {
   return (
     <>
@@ -33,8 +56,13 @@ export function Cargando({ texto, tarjetas = 4 }) {
       <div className="grilla-productos" aria-hidden="true">
         {Array.from({ length: tarjetas }, (_, i) => (
           <div key={i} className="tarjeta">
-            <div className="hueso" style={{ height: 18, width: "80%" }} />
-            <div className="hueso" style={{ height: 14, width: "40%" }} />
+            <div className="cabeza">
+              <div className="hueso" style={{ width: 84, height: 84, flex: "none" }} />
+              <div className="columna gap-8" style={{ flex: 1 }}>
+                <div className="hueso" style={{ height: 16, width: "90%" }} />
+                <div className="hueso" style={{ height: 14, width: "45%" }} />
+              </div>
+            </div>
             <div className="hueso" style={{ height: 32, width: "55%" }} />
             <div className="columna gap-8">
               <div className="hueso" style={{ height: 10 }} />
@@ -105,13 +133,16 @@ export function TarjetaProducto({ producto }) {
   const p = leerProducto(producto);
   return (
     <article className="tarjeta">
-      <header>
-        <h3>{p.nombre}</h3>
-        <div className="encabezado-meta">
-          {p.formato && <span className="pill formato">{p.formato}</span>}
-          <span className="secundario">{p.cobertura}</span>
-        </div>
-      </header>
+      <div className="cabeza">
+        <Foto producto={p} />
+        <header>
+          <h3>{p.nombre}</h3>
+          <div className="encabezado-meta">
+            {p.formato && <span className="pill formato">{p.formato}</span>}
+            <span className="secundario">{p.cobertura}</span>
+          </div>
+        </header>
+      </div>
 
       {p.comparable && (
         <div className="resumen">

@@ -78,6 +78,10 @@ class VariantePorCadena(Base):
     cadena_id: Mapped[int] = mapped_column(ForeignKey("cadenas.id", ondelete="CASCADE"))
     nombre_en_cadena: Mapped[str] = mapped_column(Text)
     url_producto: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Dirección de la foto en el servidor de la propia cadena. Se guarda la dirección y
+    # nunca el archivo: la imagen la sirve la cadena a quien visita el comparador, de
+    # modo que aquí no se almacena ni se redistribuye material de terceros.
+    imagen_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Similitud con la que se asoció al producto; permite auditar el emparejamiento
     score: Mapped[float | None] = mapped_column(Numeric(5, 2), nullable=True)
 

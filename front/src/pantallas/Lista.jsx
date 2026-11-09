@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { CADENAS, compararLista, numero, pesos } from "../api";
+import { Foto } from "../componentes";
 import { enlaceBusqueda, enlaceProducto } from "../enrutador";
 import { CANASTA } from "../medicion";
 
@@ -239,9 +240,12 @@ function Grupo({ titulo, items }) {
         return (
           <article key={`${i}-${item.texto}`} className="grupo-item">
             <span className="secundario">Escribiste «{item.texto}»</span>
-            <div className="encabezado-meta">
-              <a href={enlaceProducto(p.id)} style={{ fontWeight: 600 }}>{p.nombre}</a>
-              {p.formato && <span className="pill formato">{p.formato}</span>}
+            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+              <Foto producto={p} clase="chica" />
+              <div className="encabezado-meta">
+                <a href={enlaceProducto(p.id)} style={{ fontWeight: 600 }}>{p.nombre}</a>
+                {p.formato && <span className="pill formato">{p.formato}</span>}
+              </div>
             </div>
             <div className="columna gap-4">
               {CADENAS.map((cadena) => {

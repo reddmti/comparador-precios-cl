@@ -31,11 +31,13 @@ export const obtenerDestacados = (limite = 6, categoria) =>
 
 // Listado de la pantalla de categoría y de la de resultados: el total viene aparte
 // de los ítems, porque la página es un recorte del listado completo.
-export const listarProductos = ({ q, categoria, orden = "diferencia", soloComparables = false, limite = 24, desde = 0 }) =>
+export const listarProductos = ({ q, categoria, cadena, orden = "diferencia", soloComparables = false, limite = 24, desde = 0 }) =>
   pedir(`/productos${consulta({
-    q, categoria, orden, solo_comparables: soloComparables ? "true" : undefined,
+    q, categoria, cadena, orden, solo_comparables: soloComparables ? "true" : undefined,
     limite, desde,
   })}`);
+
+export const buscarSugerencias = (q) => pedir(`/sugerencias${consulta({ q, limite: 8 })}`);
 
 export const obtenerProducto = (id) => pedir(`/productos/${id}`);
 

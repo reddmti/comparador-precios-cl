@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
-import { diasDesde, fechaLarga, obtenerEstado, recordarBusqueda } from "./api";
-import { enlaceBusqueda, ir, useRuta, useSubirAlInicio } from "./enrutador";
+import { buscarSugerencias, diasDesde, fechaLarga, obtenerEstado, recordarBusqueda } from "./api";
+import { enlaceBusqueda, enlaceProducto, ir, useRuta, useSubirAlInicio } from "./enrutador";
 import Busqueda from "./pantallas/Busqueda";
 import Categoria from "./pantallas/Categoria";
 import Categorias from "./pantallas/Categorias";
@@ -78,31 +78,102 @@ export default function App() {
 
 function Buscador({ grande, valorInicial = "" }) {
   const [consulta, setConsulta] = useState(valorInicial);
+  const [sugerencias, setSugerencias] = useState([]);
+  const [abierto, setAbierto] = useState(false);
+  const [marcado, setMarcado] = useState(-1);
 
   // Al llegar a la pantalla de resultados por un enlace, el campo muestra lo buscado.
   useEffect(() => { setConsulta(valorInicial); }, [valorInicial]);
 
+  // Se espera a que la persona deje de escribir antes de preguntar: sin esto, «leche»
+  // dispara cinco consultas y las respuestas pueden llegar desordenadas.
+  useEffect(() => {
+    const termino = consulta.trim();
+    if (termino.length < 2 || termino === valorInicial) { setSugerencias([]); return; }
+    let vigente = true;
+    const id = setTimeout(() => {
+      buscarSugerencias(termino)
+        .then((datos) => { if (vigente) { setSugerencias(datos); setMarcado(-1); } })
+        .catch(() => { if (vigente) setSugerencias([]); });
+    }, 180);
+    return () => { vigente = false; clearTimeout(id); };
+  }, [consulta, valorInicial]);
+
+  function buscar(termino) {
+    const limpio = termino.trim();
+    if (limpio.length < 2) return;
+    recordarBusqueda(limpio);
+    setAbierto(false);
+    ir(enlaceBusqueda(limpio).slice(1));
+  }
+
   function enviar(evento) {
     evento.preventDefault();
-    const termino = consulta.trim();
-    if (termino.length < 2) return;
-    recordarBusqueda(termino);
-    ir(enlaceBusqueda(termino).slice(1));
+    if (abierto && marcado >= 0 && sugerencias[marcado]) {
+      setAbierto(false);
+      ir(enlaceProducto(sugerencias[marcado].producto_id).slice(1));
+      return;
+    }
+    buscar(consulta);
   }
+
+  function teclas(evento) {
+    if (!abierto || sugerencias.length === 0) return;
+    if (evento.key === "ArrowDown") {
+      evento.preventDefault();
+      setMarcado((n) => (n + 1) % sugerencias.length);
+    } else if (evento.key === "ArrowUp") {
+      evento.preventDefault();
+      setMarcado((n) => (n <= 0 ? sugerencias.length : n) - 1);
+    } else if (evento.key === "Escape") {
+      setAbierto(false);
+    }
+  }
+
+  const visibles = abierto && sugerencias.length > 0;
 
   return (
     <form role="search" className={`buscador${grande ? " grande" : ""}`} onSubmit={enviar}>
-      <label>
-        <span className="solo-lectores">Buscar producto</span>
-        <input
-          type="search"
-          value={consulta}
-          onChange={(e) => setConsulta(e.target.value)}
-          placeholder={grande
-            ? "Ej.: aceite de maravilla, arroz grado 1"
-            : "Busca un producto, ej.: arroz grado 1"}
-        />
-      </label>
+      <div className="campo-busqueda">
+        <label style={{ flex: 1, display: "flex" }}>
+          <span className="solo-lectores">Buscar producto</span>
+          <input
+            type="search"
+            value={consulta}
+            onChange={(e) => { setConsulta(e.target.value); setAbierto(true); }}
+            onFocus={() => setAbierto(true)}
+            onBlur={() => setTimeout(() => setAbierto(false), 150)}
+            onKeyDown={teclas}
+            role="combobox"
+            aria-expanded={visibles}
+            aria-controls="lista-sugerencias"
+            aria-autocomplete="list"
+            autoComplete="off"
+            placeholder={grande
+              ? "Ej.: aceite de maravilla, arroz grado 1"
+              : "Busca un producto, ej.: arroz grado 1"}
+          />
+        </label>
+        {visibles && (
+          <ul className="sugerencias" id="lista-sugerencias" role="listbox">
+            {sugerencias.map((s, i) => (
+              <li key={s.producto_id} role="option" aria-selected={i === marcado}>
+                <button type="button" aria-selected={i === marcado}
+                        onMouseEnter={() => setMarcado(i)}
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => { setAbierto(false); ir(enlaceProducto(s.producto_id).slice(1)); }}>
+                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {s.nombre}
+                  </span>
+                  <span className="donde">
+                    {s.cadenas > 1 ? `${s.cadenas} cadenas` : "1 cadena"}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
       <button type="submit">Buscar</button>
     </form>
   );

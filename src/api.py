@@ -62,6 +62,7 @@ class PrecioCadena(BaseModel):
     precio_por_unidad: int | None = None
     nombre_en_cadena: str
     url: str | None = None
+    imagen_url: str | None = None
     fecha: date
 
 
@@ -76,6 +77,9 @@ class ProductoComparado(BaseModel):
     nombre_normalizado: str
     categoria: str
     formato: str | None = None
+    # Foto del producto: la primera que alguna cadena publique. Es indistinto cuál,
+    # porque es el mismo artículo; se prefiere la que exista a no mostrar nada.
+    imagen_url: str | None = None
     precios: list[PrecioCadena]
     menor_precio: int | None = None
     mayor_precio: int | None = None
@@ -87,6 +91,7 @@ class Categoria(BaseModel):
     nombre: str
     productos: int
     comparables: int   # con precio en dos o más cadenas
+    imagen_url: str | None = None   # foto de muestra, para reconocerla de un vistazo
 
 
 class PaginaProductos(BaseModel):
@@ -94,6 +99,13 @@ class PaginaProductos(BaseModel):
     total: int
     comparables: int
     items: list[ProductoComparado]
+
+
+class Sugerencia(BaseModel):
+    producto_id: int
+    nombre: str
+    categoria: str
+    cadenas: int
 
 
 class ItemEntrada(BaseModel):
@@ -152,7 +164,8 @@ def precios_vigentes(sesion, producto_ids: list[int]) -> dict[int, list[PrecioCa
     filas = sesion.execute(
         select(VariantePorCadena.producto_id, Cadena.nombre, Precio.precio,
                Precio.precio_por_unidad, VariantePorCadena.nombre_en_cadena,
-               VariantePorCadena.url_producto, Precio.fecha_registro)
+               VariantePorCadena.url_producto, VariantePorCadena.imagen_url,
+               Precio.fecha_registro)
         .join(VariantePorCadena, VariantePorCadena.id == Precio.variante_id)
         .join(Cadena, Cadena.id == VariantePorCadena.cadena_id)
         .join(ultima, (ultima.c.variante_id == Precio.variante_id)
@@ -168,10 +181,10 @@ def precios_vigentes(sesion, producto_ids: list[int]) -> dict[int, list[PrecioCa
     # menor de los precios que esa cadena ofrece: 25 de los 1.796 productos cargados el
     # 20-oct-2026 estaban en esta situación.
     por_cadena: dict[int, dict[str, PrecioCadena]] = defaultdict(dict)
-    for pid, cadena, precio, por_unidad, nombre, url, fecha in filas:
+    for pid, cadena, precio, por_unidad, nombre, url, imagen, fecha in filas:
         dato = PrecioCadena(
             cadena=cadena, precio=precio, precio_por_unidad=por_unidad,
-            nombre_en_cadena=nombre, url=url, fecha=fecha)
+            nombre_en_cadena=nombre, url=url, imagen_url=imagen, fecha=fecha)
         previo = por_cadena[pid].get(cadena)
         if previo is None or dato.precio < previo.precio:
             por_cadena[pid][cadena] = dato
@@ -195,6 +208,7 @@ def armar_comparacion(producto: Producto, precios: list[PrecioCadena]) -> Produc
     return ProductoComparado(
         id=producto.id,
         nombre=nombre or producto.nombre_normalizado,
+        imagen_url=next((p.imagen_url for p in precios if p.imagen_url), None),
         nombre_normalizado=producto.nombre_normalizado,
         categoria=producto.categoria,
         formato=formato,
@@ -240,7 +254,20 @@ def categorias(sesion=Depends(obtener_sesion)):
         .join(cadenas_por_producto, cadenas_por_producto.c.producto_id == Producto.id)
         .group_by(Producto.categoria).order_by(Producto.categoria)
     ).all()
-    return [Categoria(nombre=c, productos=n, comparables=int(k or 0)) for c, n, k in filas]
+    # Una foto por categoría, tomada de un producto que esté en más de una cadena: son
+    # los que de verdad sirven para comparar, y además suelen ser los más conocidos.
+    muestras: dict[str, str] = {}
+    for categoria, imagen in sesion.execute(
+        select(Producto.categoria, VariantePorCadena.imagen_url)
+        .join(VariantePorCadena, VariantePorCadena.producto_id == Producto.id)
+        .join(cadenas_por_producto, cadenas_por_producto.c.producto_id == Producto.id)
+        .where(VariantePorCadena.imagen_url.is_not(None), cadenas_por_producto.c.n > 1)
+    ).all():
+        muestras.setdefault(categoria, imagen)
+
+    return [Categoria(nombre=c, productos=n, comparables=int(k or 0),
+                      imagen_url=muestras.get(c))
+            for c, n, k in filas]
 
 
 @app.get("/destacados", response_model=list[ProductoComparado],
@@ -297,6 +324,49 @@ def buscar(q: str = Query(min_length=2, max_length=80),
     return comparados
 
 
+@app.get("/sugerencias", response_model=list[Sugerencia],
+         summary="Nombres de producto que empiezan o contienen lo que se escribe")
+def sugerencias(q: str = Query(min_length=2, max_length=60),
+                limite: int = Query(default=8, ge=1, le=20),
+                sesion=Depends(obtener_sesion)):
+    """
+    Autocompletado del buscador.
+
+    Se ordenan primero los productos presentes en más cadenas: quien escribe «lech»
+    quiere comparar, y un producto que solo está en una cadena no le sirve para eso
+    aunque su nombre calce igual de bien.
+    """
+    terminos = [x for x in normalizar(q).split() if x]
+    if not terminos:
+        return []
+    consulta = select(Producto)
+    for termino in terminos:
+        consulta = consulta.where(Producto.nombre_normalizado.contains(termino))
+    productos = sesion.execute(consulta.limit(60)).scalars().all()
+
+    cuantas = dict(sesion.execute(
+        select(VariantePorCadena.producto_id,
+               func.count(func.distinct(VariantePorCadena.cadena_id)))
+        .where(VariantePorCadena.producto_id.in_([p.id for p in productos]))
+        .group_by(VariantePorCadena.producto_id)
+    ).all())
+
+    nombres = dict(sesion.execute(
+        select(VariantePorCadena.producto_id, VariantePorCadena.nombre_en_cadena)
+        .where(VariantePorCadena.producto_id.in_([p.id for p in productos]))
+    ).all())
+
+    filas = [
+        Sugerencia(producto_id=p.id,
+                   nombre=nombres.get(p.id, p.nombre_normalizado),
+                   categoria=p.categoria,
+                   cadenas=cuantas.get(p.id, 0))
+        for p in productos
+    ]
+    filas.sort(key=lambda s: (-s.cadenas, len(s.nombre)))
+    return filas[:limite]
+
+
 @app.get("/productos", response_model=PaginaProductos,
          summary="Lista productos de una categoría o de una búsqueda, ordenados")
 def listar_productos(
@@ -304,6 +374,7 @@ def listar_productos(
     categoria: str | None = Query(default=None, max_length=80),
     orden: str = Query(default="diferencia", pattern="^(diferencia|precio|nombre)$"),
     solo_comparables: bool = Query(default=False),
+    cadena: str | None = Query(default=None, max_length=40),
     limite: int = Query(default=24, ge=1, le=200),
     desde: int = Query(default=0, ge=0),
     sesion=Depends(obtener_sesion),
@@ -328,6 +399,11 @@ def listar_productos(
     for producto in productos:
         lista = precios.get(producto.id, [])
         if solo_comparables and len(lista) < 2:
+            continue
+        # Filtrar por cadena responde a «qué puedo comprar en la que me queda cerca»,
+        # que es distinto de comparar: se conservan todos los precios del producto para
+        # que siga viéndose cuánto cuesta en las demás.
+        if cadena and not any(x.cadena == cadena for x in lista):
             continue
         diferencia = 0.0
         if len(lista) >= 2:

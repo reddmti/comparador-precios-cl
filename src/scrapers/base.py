@@ -29,6 +29,7 @@ class Producto:
             "ean": self.ean,
             "url": self.url,
             "precio_por_kg": self.precio_por_kg,
+            "imagen_url": self.imagen_url,
         }
 
 
@@ -62,7 +63,28 @@ class BaseScraper(ABC):
         url = self.search_url(query)
         await page.goto(url, wait_until="domcontentloaded", timeout=25000)
         await page.wait_for_timeout(4000)
+        await self._cargar_imagenes(page)
         return await self.extraer(page, query)
+
+    @staticmethod
+    async def _cargar_imagenes(page: Page) -> None:
+        """
+        Desplaza la página para que las fotos con carga diferida entren al DOM.
+
+        Las tres cadenas solo piden la imagen cuando la tarjeta se acerca al viewport,
+        de modo que sin esto la mitad del listado queda sin foto. Se vuelve arriba al
+        terminar para no alterar lo que `extraer` encuentra.
+        """
+        try:
+            for _ in range(6):
+                await page.mouse.wheel(0, 900)
+                await page.wait_for_timeout(450)
+            await page.evaluate("window.scrollTo(0, 0)")
+            await page.wait_for_timeout(1200)
+        except Exception:
+            # Una página que no deja desplazar no debe tumbar la extracción: se
+            # obtienen igual los nombres y precios, que es lo que de verdad importa.
+            pass
 
 
 # ---------------------------------------------------------------------------
@@ -74,6 +96,37 @@ class BaseScraper(ABC):
 # Emparejar listas paralelas de nombres y precios por índice desalinea todo en cuanto
 # una tarjeta trae una promoción o un segundo precio por kg.
 JS_TARJETAS = r"""([selNombre, selMarca]) => {
+    // La foto no siempre está dentro del ancestro donde aparece el precio: en Jumbo y
+    // Santa Isabel ese nodo solo contiene el SVG de la insignia de descuento, y la
+    // imagen del producto vive un nivel más arriba. Se sube como máximo dos niveles y
+    // se corta si el texto crece más del doble, que es la señal de haber alcanzado un
+    // contenedor que ya abarca la tarjeta vecina.
+    //
+    // Entre las candidatas se prefiere aquella cuyo `alt` es el nombre del producto,
+    // que es como las tres cadenas etiquetan la foto real; si ninguna calza, la más
+    // grande. Los SVG se descartan de entrada: son insignias, nunca productos.
+    const fotoDeTarjeta = (card, nombre) => {
+        const base = card.innerText.length || 1;
+        let n = card;
+        for (let nivel = 0; nivel < 3 && n; nivel++) {
+            if (n.innerText.length > base * 2.2) break;
+            const cands = [...n.querySelectorAll('img')]
+                .map(im => ({
+                    src: im.currentSrc || im.getAttribute('src') || '',
+                    alt: (im.getAttribute('alt') || '').trim(),
+                    ancho: im.naturalWidth || 0,
+                }))
+                .filter(c => c.src && !/\.svg(\?|$)/i.test(c.src) && !c.src.startsWith('data:'));
+            if (cands.length) {
+                const exacta = cands.find(c => c.alt && c.alt === nombre);
+                if (exacta) return exacta.src;
+                cands.sort((a, b) => b.ancho - a.ancho);
+                return cands[0].src;
+            }
+            n = n.parentElement;
+        }
+        return null;
+    };
     return [...document.querySelectorAll(selNombre)].map(el => {
         const nombre = el.innerText.trim();
         let card = el;
@@ -82,13 +135,12 @@ JS_TARJETAS = r"""([selNombre, selMarca]) => {
         const marcaEl = selMarca ? card.querySelector(selMarca) : null;
         const link = [...card.querySelectorAll('a[href]')].map(a => a.getAttribute('href')).find(h => h && !h.startsWith('#'))
             || (card.tagName === 'A' ? card.getAttribute('href') : null);
-        const img = card.querySelector('img');
         return {
             nombre,
             marca: marcaEl ? marcaEl.innerText.trim() : '',
             lineas: card.innerText.split(String.fromCharCode(10)).map(l => l.trim()).filter(Boolean),
             url: link ? new URL(link, location.origin).href : location.href,
-            imagen_url: img ? img.src : null,
+            imagen_url: fotoDeTarjeta(card, nombre),
         };
     }).filter(Boolean);
 }"""
