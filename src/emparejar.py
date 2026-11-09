@@ -114,6 +114,7 @@ MARCAS = [
     "scott", "confort", "favorita", "noble", "swan",
     # Marcas propias de cadena: no son el mismo producto entre cadenas
     "cuisine", "maxima", "merkat", "nuestra cocina", "acuenta", "great value",
+    "smart clean",
 ]
 _MARCAS = [tuple(m.split()) for m in MARCAS]
 
