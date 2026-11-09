@@ -47,7 +47,7 @@ jobs:
           # que da SQLAlchemy más adelante («Could not parse SQLAlchemy URL») no permite
           # distinguir un secreto ausente de uno que incluye el prefijo DATABASE_URL=.
           if [ -z "$DATABASE_URL" ]; then
-            echo "::error::El secreto DATABASE_URL no está definido en el repositorio."
+            echo "::error::El secreto DATABASE_URL llega vacío. Ojo: puede existir y estar vacío, porque 'gh secret set' guarda lo que se pegue en el prompt y en Windows el pegado al prompt oculto a veces no registra nada; 'gh secret list' lo muestra igual. Vuelve a definirlo pasando el valor con --body en vez de pegarlo."
             exit 1
           fi
           case "$DATABASE_URL" in
