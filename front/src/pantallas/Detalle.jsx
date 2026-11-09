@@ -47,7 +47,7 @@ export default function Detalle({ id }) {
         {p.comparable ? (
           <div className="columna gap-12">
             <div className="columna" style={{ gap: 2 }}>
-              <span className="marbarato">✓ Más barato en {p.cadena_mas_barata}</span>
+              <span className="marbarato">Más barato en {p.cadena_mas_barata}</span>
               <span className="precio-ganador detalle">{pesos(p.menor_precio)}</span>
             </div>
             <span className={`pill ${p.minima ? "minima" : "ahorro"}`} style={{ alignSelf: "flex-start" }}>
@@ -92,7 +92,7 @@ export default function Detalle({ id }) {
           return (
             <article key={cadena} className={`bloque-cadena${esMenor ? " mejor" : ""}`}>
               <div className="linea">
-                <strong>{esMenor ? `✓ ${cadena} · Más barato` : cadena}</strong>
+                <strong>{esMenor ? `${cadena} · Más barato` : cadena}</strong>
                 <span className="precio">{pesos(dato.precio)}</span>
               </div>
               <div className="linea">
@@ -105,7 +105,7 @@ export default function Detalle({ id }) {
               </div>
               {dato.url && (
                 <a href={dato.url} target="_blank" rel="noreferrer" style={{ fontSize: 14, fontWeight: 600 }}>
-                  Ver en {cadena} ↗
+                  Ver en {cadena}
                 </a>
               )}
             </article>
@@ -154,7 +154,8 @@ function PorUnidad({ producto }) {
             <div key={x.cadena} role="listitem"
                  className={`fila-cadena${x.precio_por_unidad === menor ? " mejor" : ""}`}>
               <span className="nombre">
-                {x.precio_por_unidad === menor ? `✓ ${x.cadena}` : x.cadena}
+                {x.cadena}
+                {x.precio_por_unidad === menor && <span className="solo-lectores"> (el más barato por unidad)</span>}
               </span>
               <span className="barra" aria-hidden="true">
                 <span style={{ width: `${(x.precio_por_unidad / mayor) * 100}%` }} />

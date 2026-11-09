@@ -55,7 +55,7 @@ export default function Busqueda({ termino, estado }) {
           <strong>¿Tienes varios productos?</strong>
           <span className="secundario">Compara el costo total de tu lista en las tres cadenas.</span>
         </div>
-        <a className="boton" href="#/lista">Compara tu lista completa →</a>
+        <a className="boton" href="#/lista">Compara tu lista completa</a>
       </div>
     </main>
   );

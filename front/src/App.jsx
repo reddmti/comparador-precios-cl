@@ -26,10 +26,7 @@ export default function App() {
     <div className="pagina">
       <header className="cabecera">
         <div className="contenedor ancho">
-          <a className="marca" href="#/">
-            <span className="punto" aria-hidden="true" />
-            SuperCompara
-          </a>
+          <a className="marca" href="#/">SuperCompara</a>
           <nav className="navegacion" aria-label="Principal">
             <a href="#/categorias" aria-current={vista === "categorias" || vista === "categoria" ? "page" : undefined}>
               Categorías

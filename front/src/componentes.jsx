@@ -122,7 +122,10 @@ export function FilaCadena({ fila }) {
   }
   return (
     <div role="listitem" className={`fila-cadena${fila.esMenor ? " mejor" : ""}`}>
-      <span className="nombre">{fila.esMenor ? `✓ ${fila.cadena}` : fila.cadena}</span>
+      <span className="nombre">
+        {fila.cadena}
+        {fila.esMenor && <span className="solo-lectores"> (el más barato)</span>}
+      </span>
       <span className="barra" aria-hidden="true"><span style={{ width: fila.ancho }} /></span>
       <span className="valor">{pesos(fila.dato.precio)}</span>
     </div>
@@ -147,7 +150,7 @@ export function TarjetaProducto({ producto }) {
       {p.comparable && (
         <div className="resumen">
           <div className="columna" style={{ gap: 2 }}>
-            <span className="marbarato">✓ Más barato en {p.cadena_mas_barata}</span>
+            <span className="marbarato">Más barato en {p.cadena_mas_barata}</span>
             <span className="precio-ganador">{pesos(p.menor_precio)}</span>
           </div>
           <span className={`pill ${p.minima ? "minima" : "ahorro"}`}>{p.diferencia}</span>
@@ -168,7 +171,7 @@ export function TarjetaProducto({ producto }) {
       </div>
 
       <a className="enlace-bloque" href={enlaceProducto(p.id)}>
-        Ver precio por unidad, tiendas e historial →
+        Ver precio por unidad, tiendas e historial
       </a>
     </article>
   );

@@ -108,7 +108,6 @@ main.angosto { padding-top: 20px; }
 .marca {
   display: flex;
   align-items: center;
-  gap: 8px;
   min-height: 44px;
   color: var(--text);
   text-decoration: none;
@@ -117,12 +116,6 @@ main.angosto { padding-top: 20px; }
   letter-spacing: -0.01em;
 }
 .marca:hover { color: var(--text); }
-.marca .punto {
-  width: 20px; height: 20px;
-  border-radius: 6px;
-  background: var(--action);
-  display: block;
-}
 
 .navegacion { display: flex; gap: 4px; margin-left: auto; }
 .navegacion a {
@@ -565,6 +558,89 @@ textarea:focus-visible { border-color: var(--action); outline-offset: 1px; }
   flex-direction: column;
   gap: 8px;
 }
+
+/* ── Entrada de la lista de compras ─────────────────────────────────────── */
+.pestanas {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--bg);
+  border: 1px solid var(--borde);
+  border-radius: var(--r-control);
+  align-self: flex-start;
+  flex-wrap: wrap;
+}
+.pestanas button {
+  min-height: 40px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-medio);
+  cursor: pointer;
+}
+.pestanas button:hover { background: var(--borde-suave); }
+.pestanas button[aria-selected="true"] { background: var(--surface); color: var(--action); box-shadow: 0 1px 2px rgba(17,24,39,.08); }
+
+.renglones { display: flex; flex-direction: column; gap: 8px; }
+
+.renglon {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 8px;
+  align-items: center;
+}
+.renglon input[type="text"] {
+  width: 100%;
+  min-width: 0;
+  height: 44px;
+  padding: 0 12px;
+  border: 1px solid #d1d5db;
+  border-radius: var(--r-control);
+  font: inherit;
+  font-size: 16px;
+  color: var(--text);
+  background: var(--surface);
+}
+.renglon input[type="text"]:focus-visible { border-color: var(--action); outline-offset: 1px; }
+
+.contador { display: flex; align-items: center; border: 1px solid var(--borde); border-radius: var(--r-control); background: var(--surface); }
+.contador button {
+  width: 36px; height: 42px;
+  border: 0; background: transparent;
+  font: inherit; font-size: 18px; line-height: 1;
+  color: var(--text-medio); cursor: pointer;
+}
+.contador button:hover:not([disabled]) { background: var(--borde-suave); color: var(--text); }
+.contador button[disabled] { color: var(--borde); cursor: default; }
+.contador .valor { min-width: 28px; text-align: center; font-size: 15px; font-variant-numeric: tabular-nums; }
+
+.quitar {
+  width: 44px; height: 44px;
+  border: 1px solid transparent; border-radius: var(--r-control);
+  background: transparent; color: var(--muted);
+  font: inherit; font-size: 20px; line-height: 1; cursor: pointer;
+}
+.quitar:hover { background: var(--borde-suave); color: var(--text); }
+
+.zona-archivo {
+  border: 1.5px dashed var(--neutro);
+  border-radius: var(--r-tarjeta);
+  padding: 28px 20px;
+  text-align: center;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.zona-archivo.encima { border-color: var(--action); background: var(--action-suave); }
+
+.progreso { height: 8px; background: var(--pista); border-radius: 4px; overflow: hidden; display: block; }
+.progreso > span { display: block; height: 100%; background: var(--action); border-radius: 4px; transition: width 0.2s ease; }
 
 /* ── Pie ────────────────────────────────────────────────────────────────── */
 .pie {
