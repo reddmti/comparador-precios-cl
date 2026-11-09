@@ -62,6 +62,12 @@ VARIANTES = [
     # normalización, igual que «sin lactosa» o «sin azucar». Se usa la forma corta
     # porque Unimarc abrevia a «sin polvos» lo que Jumbo escribe completo.
     "sin polvos", "con polvos",
+    # Variedades que distinguen el producto dentro de la misma marca y formato, y que
+    # aparecieron al revisar las mayores diferencias de precio de la carga del
+    # 08-nov-2026: «Arroz Basmati Tucapel 400 g» se emparejaba con «Arroz para sushi
+    # tucapel 400 gr», y la harina P.A.N. dulce con la blanca. Se usan raíces para que
+    # «amarillo» y «amarilla» cuenten como la misma variedad.
+    "basmati", "sushi", "dulce", "blanc", "amarill",
 ]
 
 
