@@ -17,7 +17,17 @@ from emparejar import formato, normalizar, numeros, similitud, variantes  # noqa
     ("Arroz Grado 1 Tucapel 1 kg", ("g", 1000.0)),
     ("Spaghetti N°5 Lucchetti 400 g", ("g", 400.0)),
     ("Detergente líquido ariel 1.8 l", ("ml", 1800.0)),
-    ("Papel Higiénico Elite Doble Hoja 4 un.", None),  # el nombre no declara formato
+    # Lo que se cuenta también declara formato, y su unidad base es «un». Antes esto
+    # devolvía None y todo el papel higiénico caía al mismo grupo sin formato, donde un
+    # paquete de 4 podía emparejarse con uno de 18.
+    ("Papel Higiénico Elite Doble Hoja 4 un.", ("un", 4.0)),
+    ("Papel higienico confort doble hoja 18 rollos", ("un", 18.0)),
+    ("Huevos Blancos Grandes 12 un", ("un", 12.0)),
+    ("Servilletas Nova Clásicas 100 hojas", ("un", 100.0)),
+    # El peso manda sobre la cuenta: son 200 g de té, no 100 bolsitas de algo.
+    ("Té Club Ceylán 100 un. Caja 200 g", ("g", 200.0)),
+    # Dos cuentas y envase múltiple declarado: se multiplican.
+    ("Pack 6 un. de 4 rollos papel higiénico", ("un", 24.0)),
     # En Chile el punto separa miles y la coma es decimal
     ("Leche en polvo nido entera tarro 1.350 g", ("g", 1350.0)),
     ("Aceite de oliva 1,5 L", ("ml", 1500.0)),

@@ -31,6 +31,29 @@ _FORMATO = re.compile(
     r"(\d+(?:[.,]\d+)?)\s*(" + "|".join(sorted(_A_BASE, key=len, reverse=True)) + r")\b"
 )
 
+# Piezas: lo que el envase declara contando en vez de pesando o vertiendo. Se lleva todo
+# a la misma unidad base «un», porque para comparar da igual que la cadena escriba
+# «18 un.», «18 rollos» o «18 hojas»: es el mismo contenido.
+_PIEZAS = (r"un|u|uds?|unidad|unidades|rollo|rollos|hoja|hojas|capsula|capsulas|"
+           r"pastilla|pastillas|bolsita|bolsitas|sobre|sobres|toallita|toallitas|"
+           r"pano|panos|tableta|tabletas")
+_CUENTA = re.compile(r"(\d+)\s*(?:" + _PIEZAS + r")\b")
+
+
+def _piezas(limpio: str) -> Optional[int]:
+    """Cuántas piezas declara el nombre, si no declara peso ni volumen."""
+    hallazgos = _CUENTA.findall(limpio)
+    if not hallazgos:
+        return None
+    if len(hallazgos) == 1:
+        return int(hallazgos[0])
+    # Dos cuentas en el mismo nombre: «Pack 6 un. de 4 rollos» son 24 rollos, y solo se
+    # multiplican cuando el nombre declara ser un envase múltiple. Si no lo declara, la
+    # segunda es la del contenido —«Caja 100 bolsitas 20 sobres»— y se toma esa.
+    if _ES_PACK.search(limpio):
+        return int(hallazgos[0]) * int(hallazgos[-1])
+    return int(hallazgos[-1])
+
 # Palabras que no distinguen un producto de otro
 _RELLENO = {
     "de", "del", "la", "el", "los", "las", "con", "sin", "para", "en", "y", "a",
@@ -202,10 +225,18 @@ def formato(nombre: str) -> Optional[tuple[str, float]]:
     La cantidad es la del envase completo: un pack de 12 unidades de 1 L son 12.000 ml,
     de modo que no se confunde con una botella suelta de 1 L y el precio del pack queda
     asociado a la cantidad que realmente contiene.
+
+    Hay un rubro entero que no declara peso ni volumen sino piezas —18 rollos, 12
+    huevos, 4 pilas—. Para esos la unidad base es «un», y se recurre a ella solo cuando
+    no hay peso ni volumen, de modo que «Té 100 un. Caja 200 g» sigue midiéndose en
+    gramos y no en bolsitas.
     """
-    m = _FORMATO.search(sin_tildes(nombre).lower())
+    limpio = sin_tildes(nombre).lower()
+    m = _FORMATO.search(limpio)
     if not m:
-        return None
+        # Sin peso ni volumen, el contenido puede estar declarado en piezas.
+        piezas = _piezas(limpio)
+        return ("un", float(piezas)) if piezas else None
     # En Chile el punto separa miles y la coma es decimal: "1.350 g" son 1350 g y
     # "1,5 L" es 1,5 L. Un punto seguido de exactamente tres dígitos es separador de miles.
     crudo = m.group(1)
