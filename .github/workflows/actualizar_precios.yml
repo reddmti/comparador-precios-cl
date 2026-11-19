@@ -25,7 +25,7 @@ concurrency:
 jobs:
   extraer:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
 
@@ -64,7 +64,6 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           CONSULTAS: ${{ github.event.inputs.consultas }}
         run: |
-          if [ -z "$CONSULTAS" ]; then
-            CONSULTAS="arroz fideos aceite azucar leche yogurt cafe te harina sal atun mayonesa mermelada galletas cereal detergente 'papel higienico' shampoo jabon 'pasta de dientes'"
-          fi
+          # Sin consultas indicadas se recorren todas las de src/consultas.py, que es
+          # donde vive la lista; antes estaba repetida aquí como una línea de texto.
           eval "python src/cargar.py --extraer $CONSULTAS"

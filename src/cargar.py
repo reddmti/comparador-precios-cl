@@ -9,7 +9,8 @@ del día ya fue registrado, se actualiza en lugar de duplicarse.
 
 Uso:
     python src/cargar.py datos.json            # carga un archivo ya obtenido
-    python src/cargar.py --extraer arroz leche # obtiene y carga en un paso
+    python src/cargar.py --extraer arroz leche # obtiene y carga solo esas consultas
+    python src/cargar.py --extraer             # recorre todas las de consultas.py
 """
 
 import argparse
@@ -203,12 +204,19 @@ async def _extraer(consultas: list[str]) -> list[dict]:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Carga productos a la base de datos")
     parser.add_argument("archivo", nargs="?", help="JSON con los productos obtenidos")
-    parser.add_argument("--extraer", nargs="+", metavar="CONSULTA",
-                        help="obtiene las consultas indicadas y las carga")
+    parser.add_argument("--extraer", nargs="*", metavar="CONSULTA",
+                        help="obtiene y carga las consultas indicadas; sin ninguna, "
+                             "recorre todas las categorías de consultas.py")
     args = parser.parse_args()
 
-    if args.extraer:
-        productos = asyncio.run(_extraer(args.extraer))
+    if args.extraer is not None:
+        # `--extraer` a secas significa «todo el catálogo»: es lo que hace la
+        # actualización diaria, y así la lista vive en un solo archivo del repositorio
+        # en vez de repetida en la línea de comandos del flujo de trabajo.
+        from consultas import CONSULTAS
+        consultas = args.extraer or CONSULTAS
+        print(f"Obteniendo {len(consultas)} categorías", flush=True)
+        productos = asyncio.run(_extraer(consultas))
     elif args.archivo:
         datos = json.loads(Path(args.archivo).read_text(encoding="utf8"))
         productos = datos["productos"] if isinstance(datos, dict) else datos
