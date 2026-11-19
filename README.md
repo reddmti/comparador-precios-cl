@@ -155,8 +155,10 @@ obtener.
 
 ## Qué falta
 
-- Ampliar la cobertura de categorías: con las 20 obtenidas, 563 productos quedan
-  comparables en dos o más cadenas y 147 en las tres.
+- Medir el método en los rubros nuevos: la evaluación se hizo sobre 20 categorías de
+  productos envasados, y el catálogo en operación son 110. La proporción de comparables
+  va de 51%–63% en envasados a 7%–11% en tomate, carne molida o lechuga, que se venden
+  a granel o con formato variable y no declaran un contenido comparable en el nombre.
 - Acumular historial: hoy la base tiene un solo día de precios, así que el gráfico de
   evolución del detalle avisa que todavía no hay serie en lugar de dibujar una recta.
 - Incorporar Líder y Tottus, que siguen sin implementar.
