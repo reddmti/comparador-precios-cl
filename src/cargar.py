@@ -34,13 +34,19 @@ def clave_variantes(nombre: str) -> str:
     return "|".join(sorted(variantes(nombre)))
 
 
-def buscar_producto(sesion, nombre: str, cadena_id: int) -> Producto | None:
+def buscar_producto(sesion, nombre: str, cadena_id: int,
+                    por_formato: dict | None = None,
+                    pares_cadena: set | None = None) -> Producto | None:
     """
     Producto ya registrado que sea equivalente a este nombre, si existe.
 
     La búsqueda no se restringe a la categoría: un mismo producto puede aparecer en
     más de una consulta (unos fideos de arroz salen tanto en «arroz» como en «fideos»)
     y debe quedar registrado una sola vez.
+
+    `por_formato` y `pares_cadena` son índices que arma la carga completa para no
+    repetir las mismas dos consultas miles de veces; sin ellos la función va a la base,
+    que es lo que corresponde cuando se la llama suelta.
 
     Se descartan los productos que ya tienen una variante de esta misma cadena: dos
     artículos distintos de una tienda no son el mismo producto, aunque sus nombres se
@@ -49,11 +55,15 @@ def buscar_producto(sesion, nombre: str, cadena_id: int) -> Producto | None:
     """
     fmt = formato(nombre)
     unidad, cantidad = (fmt if fmt else (None, None))
-    candidatos = sesion.query(Producto).filter(
-        Producto.formato_unidad == unidad,
-        Producto.formato_cantidad == cantidad,
-        Producto.variantes == clave_variantes(nombre),
-    ).all()
+    clave = clave_variantes(nombre)
+    if por_formato is not None:
+        candidatos = por_formato.get((unidad, cantidad, clave), [])
+    else:
+        candidatos = sesion.query(Producto).filter(
+            Producto.formato_unidad == unidad,
+            Producto.formato_cantidad == cantidad,
+            Producto.variantes == clave,
+        ).all()
     nums = numeros(nombre)
     mejor, mejor_score = None, UMBRAL - 0.01
     objetivo = normalizar(nombre)
@@ -69,10 +79,13 @@ def buscar_producto(sesion, nombre: str, cadena_id: int) -> Producto | None:
         # Un producto que ya tiene variante de esta cadena solo se reutiliza si el
         # nombre normalizado es idéntico, es decir, cuando la tienda publica el mismo
         # artículo con dos redacciones. Si solo se parece, es otro producto.
-        # La consulta va directo a la base: la colección en memoria del producto puede
-        # no incluir las variantes agregadas en esta misma carga.
-        ya_en_la_cadena = sesion.query(VariantePorCadena.id).filter_by(
-            producto_id=c.id, cadena_id=cadena_id).first() is not None
+        # Con índice se responde en memoria; sin él va a la base, porque la colección
+        # del producto puede no incluir las variantes agregadas en esta misma carga.
+        if pares_cadena is not None:
+            ya_en_la_cadena = (c.id, cadena_id) in pares_cadena
+        else:
+            ya_en_la_cadena = sesion.query(VariantePorCadena.id).filter_by(
+                producto_id=c.id, cadena_id=cadena_id).first() is not None
         if ya_en_la_cadena and c.nombre_normalizado != objetivo:
             continue
         if s > mejor_score:
@@ -98,6 +111,13 @@ def cargar_productos(sesion, productos: list[dict], fecha: date | None = None) -
         pr.variante_id: pr
         for pr in sesion.query(Precio).filter_by(fecha_registro=fecha).all()
     }
+    # Los dos índices que el emparejamiento consultaba una y otra vez: el grupo de
+    # formato al que pertenece cada producto, y qué cadenas tiene ya cada producto.
+    por_formato: dict = {}
+    for prod in sesion.query(Producto).all():
+        por_formato.setdefault(
+            (prod.formato_unidad, prod.formato_cantidad, prod.variantes), []).append(prod)
+    pares_cadena = {(v.producto_id, v.cadena_id) for v in variantes_vistas.values()}
 
     for p in productos:
         nombre, precio = p.get("nombre"), p.get("precio")
@@ -110,7 +130,8 @@ def cargar_productos(sesion, productos: list[dict], fecha: date | None = None) -
         # Si esta cadena ya publicó este mismo nombre, se reutiliza su variante: ocurre
         # cuando un producto aparece bajo más de una consulta.
         variante = variantes_vistas.get((cadena.id, nombre))
-        producto = variante.producto if variante else buscar_producto(sesion, nombre, cadena.id)
+        producto = (variante.producto if variante else
+                    buscar_producto(sesion, nombre, cadena.id, por_formato, pares_cadena))
 
         if producto is None:
             fmt = formato(nombre)
@@ -123,6 +144,9 @@ def cargar_productos(sesion, productos: list[dict], fecha: date | None = None) -
             )
             sesion.add(producto)
             sesion.flush()
+            por_formato.setdefault(
+                (producto.formato_unidad, producto.formato_cantidad, producto.variantes),
+                []).append(producto)
             resumen["productos_nuevos"] += 1
 
         if variante is None:
@@ -134,6 +158,7 @@ def cargar_productos(sesion, productos: list[dict], fecha: date | None = None) -
             sesion.add(variante)
             sesion.flush()
             variantes_vistas[(cadena.id, nombre)] = variante
+            pares_cadena.add((producto.id, cadena.id))
             resumen["variantes_nuevas"] += 1
         elif p.get("imagen_url") and not variante.imagen_url:
             # Una variante registrada antes de que se capturaran fotos se completa en
