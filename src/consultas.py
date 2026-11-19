@@ -72,7 +72,11 @@ CONSULTAS = [
     # «leche infantil» se reemplazo por «leche en polvo»: devolvia 14 productos muy
     # desbalanceados entre cadenas y cero comparables, mientras que este devuelve 129
     # repartidos parejo, y es donde las cadenas publican tambien la formula infantil.
-    "panales", "toallitas humedas", "leche en polvo", "compota", "papilla",
+    "panales", "toallitas humedas", "leche en polvo", "compota",
+    # «papilla» se probo y se descarto: los buscadores de las cadenas hacen
+    # coincidencia parcial y devolvia papayas, paella, paprika y paila marina.
+    # Un termino que arrastra productos ajenos no deja una categoria floja, deja
+    # ruido en el catalogo.
 
     # ── Mascotas ─────────────────────────────────────────────────────────────
     "alimento para perro", "alimento para gato", "arena sanitaria",
