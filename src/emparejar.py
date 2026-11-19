@@ -71,7 +71,13 @@ VARIANTES = [
 ]
 
 
-# Marcas reconocidas en las veinte categorías obtenidas, en forma normalizada.
+# Marcas reconocidas en el catálogo, en forma normalizada.
+#
+# La lista se construyó sobre las veinte categorías con que se evaluó el método, así
+# que cubre despensa y aseo. Las categorías incorporadas después —carnes, bebidas,
+# mascotas, bebé— traen marcas que aún no están aquí, y ante una marca no listada la
+# regla se abstiene: esos productos se emparejan con las otras tres reglas, no con
+# las cuatro. Ampliarla es segura, pero obliga a repetir la medición del informe.
 #
 # Dos productos de marcas distintas no son el mismo producto aunque coincidan el
 # formato, la variante y casi todo el texto: «Leche Soprole Sin Lactosa Entera 1 L» y

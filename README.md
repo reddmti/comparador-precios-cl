@@ -78,7 +78,7 @@ sitio se pueda recargar y compartir sin configurar reescrituras en el servidor:
 | Ruta | Pantalla |
 |---|---|
 | `#/` | Portada: qué se compara, cobertura del día y dónde más se gana hoy |
-| `#/categorias` | Las veinte categorías, con la proporción que se puede comparar |
+| `#/categorias` | Las categorías del catálogo, con la proporción que se puede comparar |
 | `#/categoria/arroz` | Listado de una categoría, con filtro y orden |
 | `#/buscar?q=arroz` | Resultados de búsqueda, con la misma lista y controles |
 | `#/producto/392` | Detalle: precio por cadena, precio por unidad, enlaces e historial |
@@ -143,7 +143,7 @@ reajusta las secuencias de PostgreSQL.
 
 ### Actualización diaria
 
-`.github/workflows/actualizar_precios.yml` obtiene las veinte consultas y registra el
+`.github/workflows/actualizar_precios.yml` obtiene las consultas de `src/consultas.py` y registra el
 precio del día a las 09:00 UTC. Necesita un solo secreto en el repositorio:
 
 ```bash

@@ -86,6 +86,19 @@ def cargar_productos(sesion, productos: list[dict], fecha: date | None = None) -
     cadenas = {c.nombre: c for c in sesion.query(Cadena).all()}
     resumen = {"productos_nuevos": 0, "variantes_nuevas": 0, "precios": 0, "omitidos": 0}
 
+    # Dos indices en memoria en lugar de dos consultas por registro. Con 110 categorias
+    # la obtencion trae unos 14.000 registros, y preguntar uno por uno si ya existen su
+    # variante y su precio del dia eran 28.000 viajes a una base remota. Se leen enteros
+    # una vez y se mantienen al dia conforme se insertan filas.
+    variantes_vistas = {
+        (v.cadena_id, v.nombre_en_cadena): v
+        for v in sesion.query(VariantePorCadena).all()
+    }
+    precios_del_dia = {
+        pr.variante_id: pr
+        for pr in sesion.query(Precio).filter_by(fecha_registro=fecha).all()
+    }
+
     for p in productos:
         nombre, precio = p.get("nombre"), p.get("precio")
         cadena = cadenas.get(p.get("tienda"))
@@ -96,8 +109,7 @@ def cargar_productos(sesion, productos: list[dict], fecha: date | None = None) -
 
         # Si esta cadena ya publicó este mismo nombre, se reutiliza su variante: ocurre
         # cuando un producto aparece bajo más de una consulta.
-        variante = sesion.query(VariantePorCadena).filter_by(
-            cadena_id=cadena.id, nombre_en_cadena=nombre).one_or_none()
+        variante = variantes_vistas.get((cadena.id, nombre))
         producto = variante.producto if variante else buscar_producto(sesion, nombre, cadena.id)
 
         if producto is None:
@@ -121,20 +133,22 @@ def cargar_productos(sesion, productos: list[dict], fecha: date | None = None) -
             )
             sesion.add(variante)
             sesion.flush()
+            variantes_vistas[(cadena.id, nombre)] = variante
             resumen["variantes_nuevas"] += 1
         elif p.get("imagen_url") and not variante.imagen_url:
             # Una variante registrada antes de que se capturaran fotos se completa en
             # la siguiente pasada, sin tener que vaciar y recargar la base.
             variante.imagen_url = p["imagen_url"]
 
-        registro = sesion.query(Precio).filter_by(
-            variante_id=variante.id, fecha_registro=fecha).one_or_none()
+        registro = precios_del_dia.get(variante.id)
         if registro is None:
-            sesion.add(Precio(
+            registro = Precio(
                 variante_id=variante.id, precio=int(precio),
                 precio_por_unidad=int(p["precio_por_kg"]) if p.get("precio_por_kg") else None,
                 fecha_registro=fecha,
-            ))
+            )
+            sesion.add(registro)
+            precios_del_dia[variante.id] = registro
             resumen["precios"] += 1
         else:
             registro.precio = int(precio)
