@@ -127,6 +127,50 @@ MARCAS = [
     # Marcas propias de cadena: no son el mismo producto entre cadenas
     "cuisine", "maxima", "merkat", "nuestra cocina", "acuenta", "great value",
     "smart clean",
+
+    # Marcas de las categorías incorporadas en noviembre de 2026, cuando el catálogo
+    # pasó de veinte a ciento diez consultas. Se obtuvieron del mismo modo que las
+    # anteriores: proponiendo desde los nombres que publican las cadenas y eligiendo a
+    # mano. Se descartó todo lo que es palabra del rubro («líquido», «receta»),
+    # variedad («pale», «lager», «mantecoso») o formato, y las ambiguas se escriben con
+    # más de una palabra, porque «santa», «club» o «toro» sueltas producirían rechazos
+    # erróneos en cuanto aparezcan en otro contexto.
+    #
+    # Bebidas
+    "coca cola", "pepsi", "kem", "bilz", "pap", "canada dry", "red bull", "monster",
+    "cachantun", "benedictino", "guallarauco", "livean",
+    # Watt’s no se agrega: ya está como «watt», y Unimarc la escribe «watts».
+    # Tenerlas ambas las vuelve marcas distintas y separaba mermeladas idénticas.
+    # Cervezas, vinos y destilados
+    "austral", "kunstmann", "heineken", "cristal", "coors", "royal guard",
+    "casillero diablo", "castillo molina", "tarapaca", "mistral", "alto carmen",
+    "horcon quemado", "havana club", "barcelo", "mitjans",
+    # Despensa y conservas
+    "fragata", "camp", "antartic", "quaker", "maggi", "hoffmann", "alcafood",
+    "wasil", "martini", "dos caballos", "aconcagua", "pomarola", "heinz", "cocalan",
+    "mazzetti", "bragg",
+    # Lácteos
+    "calo", "surena", "quilque", "qualy", "oikos", "rio bueno",
+    # Carnes y fiambres
+    "ariztia", "schwencke", "montina", "llanquihue", "san jorge", "preferida",
+    "receta abuelo", "sadia",
+    # Panadería
+    "ideal", "fuchs", "kingsbury", "tia rosa",
+    # Snacks, dulces y helados
+    "lay", "marco polo", "doritos", "werther", "trencito", "sahne nuss",
+    "bresler", "savory", "trendy",
+    # Aseo del hogar
+    "clorox", "clorinda", "virutex", "poett", "lysol", "lysoform", "glade", "dusa",
+    "vileda", "nova", "abolengo", "basulip", "germalimp", "virginia",
+    # Cuidado personal
+    "gillette", "schick", "nivea", "rexona", "nosotras", "ladysoft", "kotex",
+    "always", "pielarmina",
+    # Bebé
+    "pampers", "babysec", "huggies", "zeukid", "emubaby", "waterwipes",
+    # Mascotas
+    "whiskas", "pedigree", "cannes", "felix", "master dog", "dog chow", "cat chow",
+    # Otros
+    "duracell", "energizer", "krea",
 ]
 _MARCAS = [tuple(m.split()) for m in MARCAS]
 
