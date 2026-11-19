@@ -27,6 +27,7 @@ CONSULTAS = [
 
     # ── Conservas ────────────────────────────────────────────────────────────
     "atun", "jurel", "choritos", "duraznos en conserva", "choclo en conserva",
+    "conservas",
 
     # ── Desayuno y once ──────────────────────────────────────────────────────
     "cafe", "te", "cereal", "galletas", "pan de molde", "tortillas",
@@ -68,7 +69,10 @@ CONSULTAS = [
     "desodorante", "toallas higienicas", "crema corporal", "afeitar",
 
     # ── Bebé ─────────────────────────────────────────────────────────────────
-    "panales", "toallitas humedas", "leche infantil",
+    # «leche infantil» se reemplazo por «leche en polvo»: devolvia 14 productos muy
+    # desbalanceados entre cadenas y cero comparables, mientras que este devuelve 129
+    # repartidos parejo, y es donde las cadenas publican tambien la formula infantil.
+    "panales", "toallitas humedas", "leche en polvo", "compota", "papilla",
 
     # ── Mascotas ─────────────────────────────────────────────────────────────
     "alimento para perro", "alimento para gato", "arena sanitaria",
